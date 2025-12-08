@@ -1,0 +1,30 @@
+# Basic ExFig workflow
+# Exports icons from Figma and commits changes
+
+name: Export Figma Icons
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export icons
+        uses: alexey1312/exfig-action@v1
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          cache: true
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: update icons from Figma"
+          git push

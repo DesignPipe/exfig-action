@@ -1,0 +1,53 @@
+# Multi-asset ExFig workflow
+# Exports colors, icons, and typography from Figma
+
+name: Export All Figma Assets
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export colors
+        uses: alexey1312/exfig-action@v1
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: colors
+          cache: true
+          cache_key_prefix: exfig-colors
+
+      - name: Export icons
+        uses: alexey1312/exfig-action@v1
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          cache: true
+          cache_key_prefix: exfig-icons
+
+      - name: Export typography
+        uses: alexey1312/exfig-action@v1
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: typography
+          cache: true
+          cache_key_prefix: exfig-typography
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore: update design tokens from Figma'
+          title: 'Update design tokens from Figma'
+          body: |
+            Automated update of design tokens from Figma.
+
+            - Colors
+            - Icons
+            - Typography
+          branch: figma-sync
+          delete-branch: true

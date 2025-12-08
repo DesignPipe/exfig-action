@@ -1,0 +1,51 @@
+# PR-triggered ExFig workflow
+# Exports assets when a PR is opened or updated
+
+name: Sync Figma Assets on PR
+
+on:
+  pull_request:
+    paths:
+      - 'exfig.yml'
+      - '.github/workflows/figma-sync.yml'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Export icons
+        id: export
+        uses: alexey1312/exfig-action@v1
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          cache: true
+          verbose: true
+
+      - name: Commit changes
+        if: steps.export.outputs.assets_exported != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "chore: sync icons from Figma"
+          git push
+
+      - name: Comment on PR
+        if: steps.export.outputs.assets_exported != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Exported ${{ steps.export.outputs.assets_exported }} assets from Figma.`
+            })

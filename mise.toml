@@ -1,0 +1,69 @@
+# =============================================================================
+# mise Configuration for ExFig Action
+# =============================================================================
+# Bootstrap Binary Version Management:
+# ------------------------------------
+# The mise version for this project is embedded in ./bin/mise bootstrap binary.
+# NO global mise installation required - ./bin/mise is self-contained!
+#
+# To update mise version:
+#   Option 1 (Recommended): bin/mise self-update
+#   Option 2 (Manual regeneration):
+#     1. Install new mise temporarily: curl https://mise.run | sh
+#     2. Regenerate bootstrap: mise generate bootstrap > ./bin/mise
+#     3. Make executable: chmod +x ./bin/mise
+# =============================================================================
+
+[settings]
+lockfile = false
+experimental = true
+legacy_version_file = false
+
+# =============================================================================
+# Tools
+# =============================================================================
+
+[tools]
+python = "3.13"
+pre-commit = "4.5.0"
+git-cliff = "2.10.1"
+# Note: mdformat is managed by pre-commit with plugins (mdformat-tables, etc.)
+
+# =============================================================================
+# Tasks
+# =============================================================================
+
+[tasks.setup]
+description = "Install tools and configure pre-commit hooks"
+run = """
+# Install pre-commit hooks (both pre-commit and commit-msg stages)
+pre-commit install
+pre-commit install --hook-type commit-msg
+
+# Pre-install mdformat hook to avoid delay on first commit
+pre-commit install-hooks
+"""
+
+[tasks.pre-commit]
+description = "Run pre-commit on all files"
+run = "pre-commit run --all-files"
+
+[tasks.format-md]
+description = "Format markdown files"
+run = "pre-commit run mdformat --all-files || true"
+
+[tasks.format-md-check]
+description = "Check markdown formatting (CI)"
+run = "pre-commit run mdformat --all-files"
+
+[tasks.lint-yaml]
+description = "Lint YAML files"
+run = "pre-commit run yamllint --all-files"
+
+[tasks.changelog]
+description = "Generate CHANGELOG.md from git history"
+run = "git-cliff -o CHANGELOG.md"
+
+[tasks."changelog:unreleased"]
+description = "Preview unreleased changes"
+run = "git-cliff --unreleased"

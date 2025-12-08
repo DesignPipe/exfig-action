@@ -1,0 +1,99 @@
+# Test workflow for ExFig Action
+# Tests the action on multiple platforms
+
+name: Test Action
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-linux:
+    name: Test on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test input validation - valid command
+        uses: ./
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          config: 'test/exfig.yml'
+        continue-on-error: true
+        id: valid-command
+
+      - name: Test input validation - invalid command
+        uses: ./
+        with:
+          figma_token: 'test-token'
+          command: invalid
+        continue-on-error: true
+        id: invalid-command
+
+      - name: Verify invalid command failed
+        run: |
+          if [[ "${{ steps.invalid-command.outcome }}" == "success" ]]; then
+            echo "Expected invalid command to fail"
+            exit 1
+          fi
+          echo "Invalid command correctly rejected"
+
+  test-macos:
+    name: Test on macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test version resolution
+        uses: ./
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          config: 'test/exfig.yml'
+          version: latest
+        continue-on-error: true
+
+  test-cache:
+    name: Test caching
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: First run - cache miss expected
+        uses: ./
+        id: first-run
+        with:
+          figma_token: ${{ secrets.FIGMA_TOKEN }}
+          command: icons
+          config: 'test/exfig.yml'
+          cache: true
+          cache_key_prefix: test-cache
+        continue-on-error: true
+
+      - name: Check cache status
+        run: |
+          echo "Cache hit: ${{ steps.first-run.outputs.cache_hit }}"
+
+  test-binary-cache:
+    name: Test binary caching
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: First run - download binary
+        uses: ./
+        with:
+          figma_token: 'test-token'
+          command: icons
+        continue-on-error: true
+
+      - name: Second run - binary should be cached
+        uses: ./
+        with:
+          figma_token: 'test-token'
+          command: icons
+        continue-on-error: true

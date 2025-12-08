@@ -1,0 +1,250 @@
+name: 'ExFig Action'
+description: 'Export Figma assets (colors, icons, images, typography) using ExFig CLI'
+author: 'Aleksei Kakoulin'
+branding:
+  icon: 'download'
+  color: 'purple'
+
+inputs:
+  figma_token:
+    description: 'Figma Personal Access Token'
+    required: true
+  command:
+    description: 'ExFig command to run: colors, icons, images, typography, batch, fetch, download'
+    required: true
+  config:
+    description: 'Path to exfig.yml config file'
+    required: false
+    default: 'exfig.yml'
+  filter:
+    description: 'Filter pattern for assets (e.g., "icon/*")'
+    required: false
+  version:
+    description: 'ExFig version to use (default: latest)'
+    required: false
+    default: 'latest'
+  cache:
+    description: 'Enable caching for incremental exports'
+    required: false
+    default: 'false'
+  cache_path:
+    description: 'Path to cache file'
+    required: false
+    default: '.exfig-cache.json'
+  cache_key_prefix:
+    description: 'Prefix for cache key'
+    required: false
+    default: 'exfig-cache'
+  granular_cache:
+    description: 'Enable experimental granular caching'
+    required: false
+    default: 'false'
+  rate_limit:
+    description: 'Figma API rate limit (requests per second)'
+    required: false
+    default: '10'
+  max_retries:
+    description: 'Maximum retries for failed API requests'
+    required: false
+    default: '3'
+  output_dir:
+    description: 'Output directory for exported assets'
+    required: false
+  verbose:
+    description: 'Enable verbose logging'
+    required: false
+    default: 'false'
+
+outputs:
+  assets_exported:
+    description: 'Number of assets exported'
+    value: ${{ steps.run-exfig.outputs.assets_exported }}
+  changed_files:
+    description: 'List of changed files (newline-separated)'
+    value: ${{ steps.run-exfig.outputs.changed_files }}
+  cache_hit:
+    description: 'Whether cache was restored'
+    value: ${{ steps.restore-cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    # Step 1: Validate inputs
+    - name: Validate inputs
+      id: validate
+      shell: bash
+      run: |
+        # Validate command
+        VALID_COMMANDS="colors icons images typography batch fetch download"
+        if ! echo "$VALID_COMMANDS" | grep -qw "${{ inputs.command }}"; then
+          echo "::error::Invalid command '${{ inputs.command }}'. Valid commands: $VALID_COMMANDS"
+          exit 1
+        fi
+
+        # Validate platform
+        if [[ "${{ runner.os }}" != "Linux" && "${{ runner.os }}" != "macOS" ]]; then
+          echo "::error::Unsupported platform: ${{ runner.os }}. Only Linux and macOS are supported."
+          exit 1
+        fi
+
+        echo "platform=${{ runner.os }}" >> $GITHUB_OUTPUT
+
+    # Step 2: Resolve version
+    - name: Resolve ExFig version
+      id: resolve-version
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        if [[ "${{ inputs.version }}" == "latest" ]]; then
+          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name' 2>/dev/null || echo "")
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::Failed to fetch latest ExFig version"
+            exit 1
+          fi
+        else
+          VERSION="${{ inputs.version }}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Resolved ExFig version: $VERSION"
+
+    # Step 3: Cache ExFig binary
+    - name: Cache ExFig binary
+      id: cache-binary
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/exfig
+        key: exfig-binary-${{ runner.os }}-${{ steps.resolve-version.outputs.version }}
+
+    # Step 4: Download ExFig binary
+    - name: Download ExFig binary
+      if: steps.cache-binary.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        VERSION="${{ steps.resolve-version.outputs.version }}"
+        INSTALL_DIR="${{ runner.temp }}/exfig"
+        mkdir -p "$INSTALL_DIR"
+
+        if [[ "${{ runner.os }}" == "macOS" ]]; then
+          ARCHIVE="exfig-macos.zip"
+        else
+          ARCHIVE="exfig-linux-x64.tar.gz"
+        fi
+
+        echo "Downloading ExFig $VERSION ($ARCHIVE)..."
+        gh release download "$VERSION" \
+          --repo alexey1312/exfig \
+          --pattern "$ARCHIVE" \
+          --dir "${{ runner.temp }}"
+
+        # Extract
+        cd "${{ runner.temp }}"
+        if [[ "$ARCHIVE" == *.zip ]]; then
+          unzip -o "$ARCHIVE" -d "$INSTALL_DIR"
+        else
+          tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
+        fi
+
+        # Make executable
+        chmod +x "$INSTALL_DIR/exfig"
+        echo "ExFig installed to $INSTALL_DIR/exfig"
+
+    # Step 5: Add ExFig to PATH
+    - name: Add ExFig to PATH
+      shell: bash
+      run: |
+        echo "${{ runner.temp }}/exfig" >> $GITHUB_PATH
+
+    # Step 6: Restore cache (if caching enabled)
+    - name: Restore ExFig cache
+      id: restore-cache
+      if: inputs.cache == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ inputs.cache_path }}
+        key: ${{ inputs.cache_key_prefix }}-${{ github.run_id }}
+        restore-keys: |
+          ${{ inputs.cache_key_prefix }}-
+
+    # Step 7: Run ExFig command
+    - name: Run ExFig
+      id: run-exfig
+      shell: bash
+      env:
+        FIGMA_PERSONAL_TOKEN: ${{ inputs.figma_token }}
+      run: |
+        # Build command
+        CMD="exfig ${{ inputs.command }}"
+
+        # Add config file
+        if [[ -f "${{ inputs.config }}" ]]; then
+          CMD="$CMD --config ${{ inputs.config }}"
+        fi
+
+        # Add filter if provided
+        if [[ -n "${{ inputs.filter }}" ]]; then
+          CMD="$CMD \"${{ inputs.filter }}\""
+        fi
+
+        # Add cache flag
+        if [[ "${{ inputs.cache }}" == "true" ]]; then
+          CMD="$CMD --cache"
+          CMD="$CMD --cache-path ${{ inputs.cache_path }}"
+        fi
+
+        # Add granular cache flag
+        if [[ "${{ inputs.granular_cache }}" == "true" ]]; then
+          CMD="$CMD --experimental-granular-cache"
+        fi
+
+        # Add rate limit
+        CMD="$CMD --rate-limit ${{ inputs.rate_limit }}"
+
+        # Add max retries
+        CMD="$CMD --max-retries ${{ inputs.max_retries }}"
+
+        # Add output directory if provided
+        if [[ -n "${{ inputs.output_dir }}" ]]; then
+          CMD="$CMD --output ${{ inputs.output_dir }}"
+        fi
+
+        # Add verbose flag
+        if [[ "${{ inputs.verbose }}" == "true" ]]; then
+          CMD="$CMD --verbose"
+        fi
+
+        echo "Running: $CMD"
+
+        # Capture output for parsing
+        OUTPUT_FILE="${{ runner.temp }}/exfig-output.txt"
+        eval $CMD 2>&1 | tee "$OUTPUT_FILE"
+        EXIT_CODE=${PIPESTATUS[0]}
+
+        if [[ $EXIT_CODE -ne 0 ]]; then
+          echo "::error::ExFig command failed with exit code $EXIT_CODE"
+          exit $EXIT_CODE
+        fi
+
+        # Parse output for metrics
+        ASSETS_COUNT=$(grep -oE 'Exported [0-9]+ assets?' "$OUTPUT_FILE" | grep -oE '[0-9]+' || echo "0")
+        echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
+
+        # Get list of changed files (if git is available and in a repo)
+        if git rev-parse --git-dir > /dev/null 2>&1; then
+          CHANGED=$(git diff --name-only 2>/dev/null || echo "")
+          if [[ -n "$CHANGED" ]]; then
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+    # Step 8: Save cache (always, even on failure for checkpoint resume)
+    - name: Save ExFig cache
+      if: always() && inputs.cache == 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ inputs.cache_path }}
+        key: ${{ inputs.cache_key_prefix }}-${{ github.run_id }}
