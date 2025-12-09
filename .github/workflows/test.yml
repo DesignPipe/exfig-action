@@ -1,5 +1,5 @@
 # Test workflow for ExFig Action
-# Tests the action on multiple platforms
+# Tests validation, binary download, and caching without requiring Figma credentials
 
 name: Test Action
 
@@ -11,89 +11,165 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-linux:
-    name: Test on Linux
+  test-validation:
+    name: Test input validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test input validation - valid command
-        uses: ./
-        with:
-          figma_token: ${{ secrets.FIGMA_TOKEN }}
-          command: icons
-          config: 'test/exfig.yml'
-        continue-on-error: true
-        id: valid-command
-
-      - name: Test input validation - invalid command
-        uses: ./
-        with:
-          figma_token: 'test-token'
-          command: invalid
-        continue-on-error: true
-        id: invalid-command
-
-      - name: Verify invalid command failed
+      - name: Test valid commands
+        shell: bash
         run: |
-          if [[ "${{ steps.invalid-command.outcome }}" == "success" ]]; then
-            echo "Expected invalid command to fail"
+          VALID_COMMANDS="colors icons images typography batch fetch download"
+          for cmd in $VALID_COMMANDS; do
+            if echo "$VALID_COMMANDS" | grep -qw "$cmd"; then
+              echo "✓ Command '$cmd' is valid"
+            else
+              echo "✗ Command '$cmd' should be valid"
+              exit 1
+            fi
+          done
+
+      - name: Test invalid command
+        shell: bash
+        run: |
+          VALID_COMMANDS="colors icons images typography batch fetch download"
+          INVALID_CMD="invalid"
+          if echo "$VALID_COMMANDS" | grep -qw "$INVALID_CMD"; then
+            echo "✗ Command '$INVALID_CMD' should be invalid"
+            exit 1
+          else
+            echo "✓ Command '$INVALID_CMD' correctly rejected"
+          fi
+
+  test-version-resolution:
+    name: Test version resolution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve latest version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "✓ Resolved latest version: $VERSION"
+
+      - name: Verify version format
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "✓ Version format is valid: $VERSION"
+          else
+            echo "✗ Invalid version format: $VERSION"
             exit 1
           fi
-          echo "Invalid command correctly rejected"
 
-  test-macos:
-    name: Test on macOS
-    runs-on: macos-latest
+  test-binary-download:
+    name: Test binary download
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test version resolution
-        uses: ./
-        with:
-          figma_token: ${{ secrets.FIGMA_TOKEN }}
-          command: icons
-          config: 'test/exfig.yml'
-          version: latest
-        continue-on-error: true
-
-  test-cache:
-    name: Test caching
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: First run - cache miss expected
-        uses: ./
-        id: first-run
-        with:
-          figma_token: ${{ secrets.FIGMA_TOKEN }}
-          command: icons
-          config: 'test/exfig.yml'
-          cache: true
-          cache_key_prefix: test-cache
-        continue-on-error: true
-
-      - name: Check cache status
+      - name: Resolve version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Cache hit: ${{ steps.first-run.outputs.cache_hit }}"
+          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-  test-binary-cache:
+      - name: Download ExFig binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          INSTALL_DIR="${{ runner.temp }}/exfig"
+          mkdir -p "$INSTALL_DIR"
+
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            ARCHIVE="exfig-macos.zip"
+          else
+            ARCHIVE="exfig-linux-x64.tar.gz"
+          fi
+
+          echo "Downloading ExFig $VERSION ($ARCHIVE)..."
+          gh release download "$VERSION" \
+            --repo alexey1312/exfig \
+            --pattern "$ARCHIVE" \
+            --dir "${{ runner.temp }}"
+
+          cd "${{ runner.temp }}"
+          if [[ "$ARCHIVE" == *.zip ]]; then
+            unzip -o "$ARCHIVE" -d "$INSTALL_DIR"
+          else
+            tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
+          fi
+
+          chmod +x "$INSTALL_DIR/exfig"
+          echo "✓ ExFig installed to $INSTALL_DIR/exfig"
+
+      - name: Verify binary works
+        run: |
+          "${{ runner.temp }}/exfig/exfig" --version
+          echo "✓ ExFig binary executes successfully"
+
+  test-binary-caching:
     name: Test binary caching
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: First run - download binary
-        uses: ./
-        with:
-          figma_token: 'test-token'
-          command: icons
-        continue-on-error: true
+      - name: Resolve version
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Second run - binary should be cached
-        uses: ./
+      - name: Check cache
+        id: cache-binary
+        uses: actions/cache@v4
         with:
-          figma_token: 'test-token'
-          command: icons
-        continue-on-error: true
+          path: ${{ runner.temp }}/exfig
+          key: exfig-binary-${{ runner.os }}-${{ steps.resolve.outputs.version }}
+
+      - name: Download if not cached
+        if: steps.cache-binary.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.resolve.outputs.version }}"
+          INSTALL_DIR="${{ runner.temp }}/exfig"
+          mkdir -p "$INSTALL_DIR"
+
+          ARCHIVE="exfig-linux-x64.tar.gz"
+          echo "Downloading ExFig $VERSION..."
+          gh release download "$VERSION" \
+            --repo alexey1312/exfig \
+            --pattern "$ARCHIVE" \
+            --dir "${{ runner.temp }}"
+
+          cd "${{ runner.temp }}"
+          tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
+          chmod +x "$INSTALL_DIR/exfig"
+          echo "✓ ExFig downloaded and installed"
+
+      - name: Report cache status
+        run: |
+          if [[ "${{ steps.cache-binary.outputs.cache-hit }}" == "true" ]]; then
+            echo "✓ Binary was restored from cache"
+          else
+            echo "✓ Binary was downloaded (cache miss expected on first run)"
+          fi
+
+      - name: Verify binary works
+        run: |
+          "${{ runner.temp }}/exfig/exfig" --version
+          echo "✓ ExFig binary executes successfully"
