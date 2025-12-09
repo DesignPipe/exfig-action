@@ -147,9 +147,9 @@ runs:
           tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
         fi
 
-        # Make executable
-        chmod +x "$INSTALL_DIR/exfig"
-        echo "ExFig installed to $INSTALL_DIR/exfig"
+        # Make executable (binary is named ExFig with capital letters)
+        chmod +x "$INSTALL_DIR/ExFig"
+        echo "ExFig installed to $INSTALL_DIR/ExFig"
 
     # Step 5: Add ExFig to PATH
     - name: Add ExFig to PATH
@@ -176,7 +176,7 @@ runs:
         FIGMA_PERSONAL_TOKEN: ${{ inputs.figma_token }}
       run: |
         # Build command
-        CMD="exfig ${{ inputs.command }}"
+        CMD="ExFig ${{ inputs.command }}"
 
         # Add config file
         if [[ -f "${{ inputs.config }}" ]]; then

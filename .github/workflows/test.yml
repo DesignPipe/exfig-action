@@ -111,12 +111,12 @@ jobs:
             tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
           fi
 
-          chmod +x "$INSTALL_DIR/exfig"
-          echo "✓ ExFig installed to $INSTALL_DIR/exfig"
+          chmod +x "$INSTALL_DIR/ExFig"
+          echo "✓ ExFig installed to $INSTALL_DIR/ExFig"
 
       - name: Verify binary works
         run: |
-          "${{ runner.temp }}/exfig/exfig" --version
+          "${{ runner.temp }}/exfig/ExFig" --version
           echo "✓ ExFig binary executes successfully"
 
   test-binary-caching:
@@ -158,7 +158,7 @@ jobs:
 
           cd "${{ runner.temp }}"
           tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"
-          chmod +x "$INSTALL_DIR/exfig"
+          chmod +x "$INSTALL_DIR/ExFig"
           echo "✓ ExFig downloaded and installed"
 
       - name: Report cache status
@@ -171,5 +171,5 @@ jobs:
 
       - name: Verify binary works
         run: |
-          "${{ runner.temp }}/exfig/exfig" --version
+          "${{ runner.temp }}/exfig/ExFig" --version
           echo "✓ ExFig binary executes successfully"
