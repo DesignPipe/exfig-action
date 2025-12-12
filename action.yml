@@ -189,8 +189,14 @@ runs:
         # Build command
         CMD="ExFig ${{ inputs.command }}"
 
-        # Add config file
-        if [[ -f "${{ inputs.config }}" ]]; then
+        # Handle config based on command type
+        # For 'batch' command: paths are positional arguments (added at the end)
+        # For other commands: use --config flag
+        CONFIG_PATHS=""
+        if [[ "${{ inputs.command }}" == "batch" ]]; then
+          # Convert comma-separated paths to space-separated for batch command
+          CONFIG_PATHS=$(echo "${{ inputs.config }}" | tr ',' ' ')
+        elif [[ -f "${{ inputs.config }}" ]]; then
           CMD="$CMD --config ${{ inputs.config }}"
         fi
 
@@ -224,6 +230,11 @@ runs:
         # Add verbose flag
         if [[ "${{ inputs.verbose }}" == "true" ]]; then
           CMD="$CMD --verbose"
+        fi
+
+        # Add config paths at the end for batch command (positional arguments)
+        if [[ -n "$CONFIG_PATHS" ]]; then
+          CMD="$CMD $CONFIG_PATHS"
         fi
 
         echo "Running: $CMD"
