@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2025-12-12
+
+### Miscellaneous Tasks
+
+- **test**: Replace gh CLI with curl for API calls by @alexey1312
+
+
 ## [1.0.1] - 2025-12-09
 
 ### Bug Fixes
