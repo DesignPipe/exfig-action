@@ -192,12 +192,25 @@ runs:
         # Handle config based on command type
         # For 'batch' command: paths are positional arguments (added at the end)
         # For other commands: use --config flag
-        CONFIG_PATHS=""
+        CONFIG_PATHS=()
         if [[ "${{ inputs.command }}" == "batch" ]]; then
-          # Convert comma-separated paths to space-separated for batch command
-          CONFIG_PATHS=$(echo "${{ inputs.config }}" | tr ',' ' ')
+          # Parse comma-separated paths, handling spaces correctly
+          IFS=',' read -ra CONFIGS <<< "${{ inputs.config }}"
+          for cfg in "${CONFIGS[@]}"; do
+            # Trim leading/trailing whitespace
+            cfg=$(echo "$cfg" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [[ -f "$cfg" ]]; then
+              CONFIG_PATHS+=("$cfg")
+            else
+              echo "::warning::Config file not found: $cfg"
+            fi
+          done
+          if [[ ${#CONFIG_PATHS[@]} -eq 0 ]]; then
+            echo "::error::No valid config files found for batch command"
+            exit 1
+          fi
         elif [[ -f "${{ inputs.config }}" ]]; then
-          CMD="$CMD --config ${{ inputs.config }}"
+          CMD="$CMD --config \"${{ inputs.config }}\""
         fi
 
         # Add filter if provided
@@ -233,8 +246,10 @@ runs:
         fi
 
         # Add config paths at the end for batch command (positional arguments)
-        if [[ -n "$CONFIG_PATHS" ]]; then
-          CMD="$CMD $CONFIG_PATHS"
+        if [[ ${#CONFIG_PATHS[@]} -gt 0 ]]; then
+          for cfg in "${CONFIG_PATHS[@]}"; do
+            CMD="$CMD \"$cfg\""
+          done
         fi
 
         echo "Running: $CMD"
