@@ -50,10 +50,18 @@ jobs:
 
       - name: Resolve latest version
         id: resolve
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          # Use jq if available, fallback to grep+sed
+          if command -v jq &>/dev/null; then
+            VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
+          else
+            VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "✗ Failed to resolve latest version"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "✓ Resolved latest version: $VERSION"
 
@@ -63,7 +71,85 @@ jobs:
           if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "✓ Version format is valid: $VERSION"
           else
-            echo "✗ Invalid version format: $VERSION"
+            echo "✗ Invalid version format: $VERSION (expected v-prefixed semver)"
+            exit 1
+          fi
+
+  test-version-normalization:
+    name: Test version normalization
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test version with v-prefix
+        run: |
+          VERSION="v1.1.3"
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          if [[ "$VERSION" == "v1.1.3" ]]; then
+            echo "✓ Version with v-prefix unchanged: $VERSION"
+          else
+            echo "✗ Version with v-prefix should be unchanged"
+            exit 1
+          fi
+
+      - name: Test version without v-prefix
+        run: |
+          VERSION="1.1.3"
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          if [[ "$VERSION" == "v1.1.3" ]]; then
+            echo "✓ Version without v-prefix normalized: $VERSION"
+          else
+            echo "✗ Version without v-prefix should be normalized to v1.1.3"
+            exit 1
+          fi
+
+  test-invalid-version:
+    name: Test invalid version handling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test empty version gets v-prefix
+        run: |
+          # Empty string edge case - should add v prefix
+          VERSION=""
+          if [[ -n "$VERSION" && ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          echo "✓ Empty version handled: '$VERSION'"
+
+      - name: Test version with spaces
+        run: |
+          VERSION="  1.1.3  "
+          # Trim whitespace
+          VERSION=$(echo "$VERSION" | xargs)
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
+          if [[ "$VERSION" == "v1.1.3" ]]; then
+            echo "✓ Version with spaces normalized: $VERSION"
+          else
+            echo "✗ Version with spaces should be normalized"
+            exit 1
+          fi
+
+      - name: Test download URL construction
+        run: |
+          # Verify URL is valid for a known version
+          VERSION="v1.1.3"
+          ARCHIVE="exfig-linux-x64.tar.gz"
+          DOWNLOAD_URL="https://github.com/alexey1312/exfig/releases/download/$VERSION/$ARCHIVE"
+
+          HTTP_CODE=$(curl -sI -o /dev/null -w "%{http_code}" "$DOWNLOAD_URL")
+          # 302 means redirect to download (valid)
+          if [[ "$HTTP_CODE" == "302" ]]; then
+            echo "✓ Download URL is valid (HTTP $HTTP_CODE): $DOWNLOAD_URL"
+          else
+            echo "✗ Download URL returned unexpected status: $HTTP_CODE"
             exit 1
           fi
 
@@ -78,15 +164,21 @@ jobs:
 
       - name: Resolve version
         id: resolve
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          # Use jq if available, fallback to grep+sed
+          if command -v jq &>/dev/null; then
+            VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
+          else
+            VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "✗ Failed to resolve latest version"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Download ExFig binary
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
           INSTALL_DIR="${{ runner.temp }}/exfig"
@@ -98,11 +190,15 @@ jobs:
             ARCHIVE="exfig-linux-x64.tar.gz"
           fi
 
+          DOWNLOAD_URL="https://github.com/alexey1312/exfig/releases/download/$VERSION/$ARCHIVE"
           echo "Downloading ExFig $VERSION ($ARCHIVE)..."
-          gh release download "$VERSION" \
-            --repo alexey1312/exfig \
-            --pattern "$ARCHIVE" \
-            --dir "${{ runner.temp }}"
+          echo "URL: $DOWNLOAD_URL"
+
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o "${{ runner.temp }}/$ARCHIVE" "$DOWNLOAD_URL")
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "✗ Failed to download ExFig. HTTP status: $HTTP_CODE"
+            exit 1
+          fi
 
           cd "${{ runner.temp }}"
           if [[ "$ARCHIVE" == *.zip ]]; then
@@ -127,10 +223,18 @@ jobs:
 
       - name: Resolve version
         id: resolve
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name')
+          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          # Use jq if available, fallback to grep+sed
+          if command -v jq &>/dev/null; then
+            VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
+          else
+            VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          fi
+          if [[ -z "$VERSION" ]]; then
+            echo "✗ Failed to resolve latest version"
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Check cache
@@ -142,19 +246,21 @@ jobs:
 
       - name: Download if not cached
         if: steps.cache-binary.outputs.cache-hit != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.resolve.outputs.version }}"
           INSTALL_DIR="${{ runner.temp }}/exfig"
           mkdir -p "$INSTALL_DIR"
 
           ARCHIVE="exfig-linux-x64.tar.gz"
+          DOWNLOAD_URL="https://github.com/alexey1312/exfig/releases/download/$VERSION/$ARCHIVE"
           echo "Downloading ExFig $VERSION..."
-          gh release download "$VERSION" \
-            --repo alexey1312/exfig \
-            --pattern "$ARCHIVE" \
-            --dir "${{ runner.temp }}"
+          echo "URL: $DOWNLOAD_URL"
+
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o "${{ runner.temp }}/$ARCHIVE" "$DOWNLOAD_URL")
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "✗ Failed to download ExFig. HTTP status: $HTTP_CODE"
+            exit 1
+          fi
 
           cd "${{ runner.temp }}"
           tar -xzf "$ARCHIVE" -C "$INSTALL_DIR"

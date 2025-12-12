@@ -93,17 +93,25 @@ runs:
     - name: Resolve ExFig version
       id: resolve-version
       shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
       run: |
         if [[ "${{ inputs.version }}" == "latest" ]]; then
-          VERSION=$(gh api repos/alexey1312/exfig/releases/latest --jq '.tag_name' 2>/dev/null || echo "")
+          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          # Use jq if available, fallback to grep+sed for environments without jq
+          if command -v jq &>/dev/null; then
+            VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
+          else
+            VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
+          fi
           if [[ -z "$VERSION" ]]; then
-            echo "::error::Failed to fetch latest ExFig version"
+            echo "::error::Failed to fetch latest ExFig version. This may happen due to GitHub API rate limiting."
             exit 1
           fi
         else
           VERSION="${{ inputs.version }}"
+          # Normalize version: add 'v' prefix if missing (ExFig tags use v-prefix)
+          if [[ ! "$VERSION" =~ ^v ]]; then
+            VERSION="v$VERSION"
+          fi
         fi
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Resolved ExFig version: $VERSION"
@@ -120,8 +128,6 @@ runs:
     - name: Download ExFig binary
       if: steps.cache-binary.outputs.cache-hit != 'true'
       shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
       run: |
         VERSION="${{ steps.resolve-version.outputs.version }}"
         INSTALL_DIR="${{ runner.temp }}/exfig"
@@ -133,11 +139,16 @@ runs:
           ARCHIVE="exfig-linux-x64.tar.gz"
         fi
 
+        DOWNLOAD_URL="https://github.com/alexey1312/exfig/releases/download/$VERSION/$ARCHIVE"
         echo "Downloading ExFig $VERSION ($ARCHIVE)..."
-        gh release download "$VERSION" \
-          --repo alexey1312/exfig \
-          --pattern "$ARCHIVE" \
-          --dir "${{ runner.temp }}"
+        echo "URL: $DOWNLOAD_URL"
+
+        HTTP_CODE=$(curl -sL -w "%{http_code}" -o "${{ runner.temp }}/$ARCHIVE" "$DOWNLOAD_URL")
+        if [[ "$HTTP_CODE" != "200" ]]; then
+          echo "::error::Failed to download ExFig. HTTP status: $HTTP_CODE"
+          echo "::error::URL: $DOWNLOAD_URL"
+          exit 1
+        fi
 
         # Extract
         cd "${{ runner.temp }}"
