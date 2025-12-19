@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2025-12-19
+
+### Documentation
+
+- **action**: Add extra_args input for additional CLI flags by @alexey1312
+
+
 ## [1.0.2] - 2025-12-12
 
 ### Bug Fixes
