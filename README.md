@@ -29,6 +29,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `max_retries`      | Maximum retries for failed API requests                                                | No       | `3`                 |
 | `output_dir`       | Output directory for exported assets                                                   | No       | -                   |
 | `verbose`          | Enable verbose logging                                                                 | No       | `false`             |
+| `extra_args`       | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
 
 ## Outputs
 
@@ -125,6 +126,18 @@ jobs:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
     version: 'v1.2.0'
+```
+
+### Extra CLI Arguments
+
+Pass additional flags directly to ExFig CLI:
+
+```yaml
+- uses: alexey1312/exfig-action@v1
+  with:
+    figma_token: ${{ secrets.FIGMA_TOKEN }}
+    command: icons
+    extra_args: '--force'
 ```
 
 ### macOS Runner

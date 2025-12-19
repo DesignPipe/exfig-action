@@ -54,6 +54,10 @@ inputs:
     description: 'Enable verbose logging'
     required: false
     default: 'false'
+  extra_args:
+    description: 'Additional CLI arguments to pass to ExFig (e.g., "--force --dry-run")'
+    required: false
+    default: ''
 
 outputs:
   assets_exported:
@@ -250,6 +254,11 @@ runs:
           for cfg in "${CONFIG_PATHS[@]}"; do
             CMD="$CMD \"$cfg\""
           done
+        fi
+
+        # Add extra arguments if provided
+        if [[ -n "${{ inputs.extra_args }}" ]]; then
+          CMD="$CMD ${{ inputs.extra_args }}"
         fi
 
         echo "Running: $CMD"

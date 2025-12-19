@@ -1,6 +1,10 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 <!-- OPENSPEC:START -->
 
-# OpenSpec Instructions
+## OpenSpec Instructions
 
 These instructions are for AI assistants working in this project.
 
@@ -20,153 +24,77 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
-# ExFig Action
-
-GitHub Action for automating Figma asset exports using ExFig CLI.
-
 ## Project Overview
 
-- **Version**: 1.0.0
-- **Type**: Composite GitHub Action (shell-based)
-- **Platforms**: macOS, Linux (no Windows support)
-- **Purpose**: Export Figma colors, icons, images, typography to iOS/Android/Flutter/Web
+ExFig Action is a composite GitHub Action (shell-based) that exports Figma assets using ExFig CLI. It supports macOS and Linux only (no Windows).
 
-## Tech Stack
+**Key Files:**
 
-- Bash shell scripts (POSIX-compatible)
-- actions/cache@v4 for caching
-- ExFig binary from github.com/alexey1312/exfig
+- `action.yml` - Main action definition with 8 sequential steps
+- `mise.toml` - Tool versions and task definitions
+- `cliff.toml` - Changelog generation config
 
-## Development Tools
+## Action Architecture
 
-| Tool       | Version   | Purpose                 |
-| ---------- | --------- | ----------------------- |
-| mise       | bootstrap | Tool version management |
-| Python     | 3.13      | pre-commit runtime      |
-| pre-commit | 4.5.0     | Git hooks               |
-| git-cliff  | 2.10.1    | Changelog generation    |
+The action executes these steps in order:
 
-## Project Structure
+1. **Validate inputs** - Check command validity and platform support
+2. **Resolve version** - Fetch latest from GitHub API or normalize user-provided version
+3. **Cache binary** - Restore ExFig binary from `actions/cache@v4`
+4. **Download binary** - If cache miss, download platform-specific archive from GitHub Releases
+5. **Add to PATH** - Make ExFig available to subsequent steps
+6. **Restore asset cache** - Optionally restore `.exfig-cache.json` for incremental exports
+7. **Run ExFig** - Execute command with all flags, capture output metrics
+8. **Save asset cache** - Persist cache even on failure (checkpoint resume)
 
-```
-├── action.yml           # Main action definition (8 steps)
-├── README.md            # User documentation
-├── CHANGELOG.md         # Release notes (auto-generated)
-├── docs/
-│   ├── caching.md       # Caching strategy details
-│   └── troubleshooting.md
-├── examples/            # Workflow templates
-│   ├── basic.yml
-│   ├── multi-asset.yml
-│   └── pr-trigger.yml
-├── openspec/            # Spec-driven development
-│   ├── project.md       # Project conventions
-│   ├── AGENTS.md        # OpenSpec workflow guide
-│   └── changes/         # Change proposals
-└── .github/workflows/
-    ├── test.yml         # Matrix testing (macOS + Linux)
-    └── release.yml      # Auto-release on version tags
+**Binary naming:** The ExFig binary is named `ExFig` (capital letters), not `exfig`.
+
+**Batch command handling:** Uses positional arguments for config paths, not `--config` flag.
+
+## Development Commands
+
+No global mise installation required - `./bin/mise` is a self-contained bootstrap binary.
+
+```bash
+./bin/mise run setup              # Install pre-commit hooks
+./bin/mise run pre-commit         # Run all checks
+./bin/mise run lint-yaml          # YAML linting only
+./bin/mise run format-md          # Format markdown files
+./bin/mise run changelog          # Regenerate CHANGELOG.md
+./bin/mise run changelog:unreleased  # Preview unreleased changes
 ```
 
-## Action Inputs
-
-| Input            | Required | Default           | Description                                               |
-| ---------------- | -------- | ----------------- | --------------------------------------------------------- |
-| figma_token      | Yes      | -                 | Figma Personal Access Token                               |
-| command          | Yes      | -                 | colors, icons, images, typography, batch, fetch, download |
-| config           | No       | exfig.yml         | Path to config file                                       |
-| filter           | No       | -                 | Asset filter pattern                                      |
-| version          | No       | latest            | ExFig version                                             |
-| cache            | No       | false             | Enable asset caching                                      |
-| cache_path       | No       | .exfig-cache.json | Cache file location                                       |
-| cache_key_prefix | No       | exfig-cache       | Cache key prefix                                          |
-| granular_cache   | No       | false             | Experimental per-node caching                             |
-| rate_limit       | No       | 10                | Figma API rate limit (req/sec)                            |
-| max_retries      | No       | 3                 | Max retry attempts                                        |
-| output_dir       | No       | -                 | Output directory                                          |
-| verbose          | No       | false             | Enable verbose logging                                    |
-
-## Action Outputs
-
-- `assets_exported` - Number of assets exported
-- `changed_files` - Modified file list (newline-separated)
-- `cache_hit` - Cache restoration status (true/false)
-
-## Caching Strategy
-
-Two-tier caching:
-
-1. **Binary Cache**: `exfig-binary-{os}-{version}` - Always enabled, caches ExFig binary
-2. **Asset Cache**: `{prefix}-{run_id}` - User-controlled via `cache: true`, caches Figma metadata
-
-## Commit Message Format
+## Commit Conventions
 
 Use Conventional Commits: `<type>(<scope>): <description>`
 
-**Types**: feat, fix, docs, style, refactor, perf, test, chore, ci, revert
-
-**Scopes**: action, docs, ci, release
-
-Example:
-
-```
-feat(action): add granular cache support
-
-- Implement per-node hash tracking
-- Add granular_cache input flag
-```
-
-## Common Tasks
-
-```bash
-# Initial setup
-./bin/mise run setup
-
-# Run pre-commit hooks
-./bin/mise run pre-commit
-
-# Lint YAML files
-./bin/mise run lint-yaml
-
-# Format markdown
-./bin/mise run format-md
-
-# Generate changelog
-./bin/mise run changelog
-
-# Preview unreleased changes
-./bin/mise run changelog:unreleased
-```
+**Types:** feat, fix, docs, style, refactor, perf, test, chore, ci, revert
+**Scopes:** action, docs, ci, release
 
 ## Shell Code Style
 
-- Use `set -e` for fail-fast behavior
 - Quote all variable expansions: `"${VAR}"`
 - Use lowercase for local variables, UPPERCASE for environment variables
-- POSIX compatibility where possible
+- Prefer POSIX-compatible constructs
 
-## Important Constraints
+## Caching
 
-- Requires `FIGMA_PERSONAL_TOKEN` passed as secret
-- macOS and Linux only (Windows not supported)
-- ExFig releases must exist on alexey1312/exfig
-- Binary downloaded from GitHub Releases per platform:
-  - macOS: `exfig-macos.zip`
-  - Linux: `exfig-linux-x64.tar.gz`
+Two-tier caching:
 
-## Testing
-
-Test matrix in `.github/workflows/test.yml`:
-
-- Input validation (valid/invalid commands)
-- Version resolution (latest version)
-- Cache hit/miss scenarios
-- Binary caching across versions
-- Cross-platform (macOS + Linux)
+1. **Binary cache** (always on): `exfig-binary-{os}-{version}`
+2. **Asset cache** (user-controlled): `{prefix}-{run_id}` with restore-keys fallback
 
 ## Release Process
 
-1. Push version tag: `git tag v1.x.x && git push --tags`
-2. `release.yml` auto-generates changelog via git-cliff
-3. Creates GitHub Release with notes
-4. Updates major version tag (`v1`) to point to latest
+1. Tag: `git tag v1.x.x && git push --tags`
+2. `release.yml` generates changelog via git-cliff and creates GitHub Release
+3. Major version tag (`v1`) auto-updates to point to latest
+
+## Testing
+
+Tests in `.github/workflows/test.yml` validate action logic without Figma credentials:
+
+- Input validation
+- Version resolution and normalization
+- Binary download (macOS + Linux matrix)
+- Cache behavior
