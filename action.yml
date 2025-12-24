@@ -214,7 +214,7 @@ runs:
             exit 1
           fi
         elif [[ -f "${{ inputs.config }}" ]]; then
-          CMD="$CMD --config \"${{ inputs.config }}\""
+          CMD="$CMD -i \"${{ inputs.config }}\""
         fi
 
         # Add filter if provided
