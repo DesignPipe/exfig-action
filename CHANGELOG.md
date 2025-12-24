@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2025-12-24
+
+### Bug Fixes
+
+- **action**: Use -i flag instead of --config for batch command by @alexey1312
+
+
 ## [1.0.3] - 2025-12-19
 
 ### Documentation
