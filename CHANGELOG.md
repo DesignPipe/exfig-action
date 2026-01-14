@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.11] - 2026-01-14
+
+### Bug Fixes
+
+- **action**: Escape newlines in CONFIGS_DISPLAY for sed substitution by @alexey1312
+
+
 ## [1.0.10] - 2026-01-14
 
 ### Bug Fixes
