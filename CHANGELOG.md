@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.6] - 2026-01-14
+
+### Bug Fixes
+
+- **action**: Improve Slack notification accuracy and details by @alexey1312
+
+
+### Features
+
+- **action**: Add customizable Slack notification templates by @alexey1312
+
+- **action**: Auto-format Slack mention IDs by @alexey1312
+
+
 ## [1.0.5] - 2026-01-14
 
 ### Features
