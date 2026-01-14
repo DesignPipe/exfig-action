@@ -92,6 +92,12 @@ outputs:
   config_summary:
     description: 'Summary of config files processed (for batch command)'
     value: ${{ steps.run-exfig.outputs.config_summary }}
+  validated_count:
+    description: 'Number of configs validated from cache (no changes)'
+    value: ${{ steps.run-exfig.outputs.validated_count }}
+  exported_configs:
+    description: 'Number of configs that exported new assets'
+    value: ${{ steps.run-exfig.outputs.exported_configs }}
 
 runs:
   using: 'composite'
@@ -310,6 +316,14 @@ runs:
           | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum+0}')
         echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
 
+        # Parse validated (cached) configs - match ExFig output: "✓ config.yaml - validated"
+        VALIDATED_COUNT=$(grep -cE '^✓.*- validated' "$OUTPUT_FILE" 2>/dev/null || echo "0")
+        echo "validated_count=$VALIDATED_COUNT" >> $GITHUB_OUTPUT
+
+        # Count configs with actual exports (not just validated)
+        EXPORTED_CONFIGS=$(grep -cE '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null || echo "0")
+        echo "exported_configs=$EXPORTED_CONFIGS" >> $GITHUB_OUTPUT
+
         # Parse failure count from batch output: "Batch complete: X succeeded, Y failed"
         FAILED_COUNT=$(grep -oE '[0-9]+ failed' "$OUTPUT_FILE" 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
         if [[ -z "$FAILED_COUNT" ]]; then
@@ -373,6 +387,10 @@ runs:
         ASSETS="${ASSETS:-0}"  # default to 0 if not set
         FAILED_COUNT="${{ steps.run-exfig.outputs.failed_count }}"
         FAILED_COUNT="${FAILED_COUNT:-0}"
+        VALIDATED_COUNT="${{ steps.run-exfig.outputs.validated_count }}"
+        VALIDATED_COUNT="${VALIDATED_COUNT:-0}"
+        EXPORTED_CONFIGS="${{ steps.run-exfig.outputs.exported_configs }}"
+        EXPORTED_CONFIGS="${EXPORTED_CONFIGS:-0}"
         DURATION="${{ steps.run-exfig.outputs.duration }}"
         DURATION="${DURATION:-0s}"
         CACHE_HIT="${{ steps.restore-cache.outputs.cache-hit }}"
@@ -393,11 +411,27 @@ runs:
           fi
         fi
 
-        # Build command display with config details for batch
+        # Build command display - just the command name
+        COMMAND_DISPLAY="$COMMAND"
+
+        # Build configs display for batch command (newline-separated for cleaner look)
         if [[ -n "$CONFIG_SUMMARY" ]]; then
-          COMMAND_DISPLAY="$COMMAND ($CONFIG_SUMMARY)"
+          # Convert comma-separated to bullet list
+          CONFIGS_DISPLAY=$(echo "$CONFIG_SUMMARY" | tr ',' '\n' \
+            | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^/• /')
         else
-          COMMAND_DISPLAY="$COMMAND"
+          CONFIGS_DISPLAY=""
+        fi
+
+        # Build assets display with cache info
+        if [[ "$VALIDATED_COUNT" -gt 0 ]]; then
+          if [[ "$ASSETS" -gt 0 ]]; then
+            ASSETS_DISPLAY="$ASSETS exported, $VALIDATED_COUNT cached"
+          else
+            ASSETS_DISPLAY="$VALIDATED_COUNT cached (no changes)"
+          fi
+        else
+          ASSETS_DISPLAY="$ASSETS exported"
         fi
 
         # Determine status, icon, template, and context based on result
@@ -447,7 +481,8 @@ runs:
             -e "s|{{ICON}}|$ICON|g" \
             -e "s|{{TITLE}}|$TITLE|g" \
             -e "s|{{COMMAND}}|$COMMAND_DISPLAY|g" \
-            -e "s|{{ASSETS}}|$ASSETS|g" \
+            -e "s|{{CONFIGS}}|$CONFIGS_DISPLAY|g" \
+            -e "s|{{ASSETS}}|$ASSETS_DISPLAY|g" \
             -e "s|{{DURATION}}|$DURATION|g" \
             -e "s|{{REPO}}|$REPO|g" \
             -e "s|{{SUBTITLE}}|$SUBTITLE|g" \
@@ -460,7 +495,8 @@ runs:
               --arg icon "$ICON" \
               --arg title "$TITLE" \
               --arg command "$COMMAND_DISPLAY" \
-              --arg assets "$ASSETS" \
+              --arg configs "$CONFIGS_DISPLAY" \
+              --arg assets "$ASSETS_DISPLAY" \
               --arg repo "$REPO" \
               --arg duration "$DURATION" \
               --arg subtitle "$SUBTITLE" \
@@ -472,8 +508,11 @@ runs:
                     {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
                     {type: "section", fields: [
                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                      {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}
                     ]},
+                    (if $configs != "" then
+                      {type: "section", text: {type: "mrkdwn", text: "*Configs:*\\n\($configs)"}}
+                    else empty end),
                     {type: "section", fields: [
                       {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
                       {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
@@ -491,7 +530,8 @@ runs:
               --arg icon "$ICON" \
               --arg title "$TITLE" \
               --arg command "$COMMAND_DISPLAY" \
-              --arg assets "$ASSETS" \
+              --arg configs "$CONFIGS_DISPLAY" \
+              --arg assets "$ASSETS_DISPLAY" \
               --arg repo "$REPO" \
               --arg duration "$DURATION" \
               --arg url "$RUN_URL" \
@@ -502,8 +542,11 @@ runs:
                     {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
                     {type: "section", fields: [
                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                      {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}
                     ]},
+                    (if $configs != "" then
+                      {type: "section", text: {type: "mrkdwn", text: "*Configs:*\\n\($configs)"}}
+                    else empty end),
                     {type: "section", fields: [
                       {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
                       {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
@@ -519,7 +562,10 @@ runs:
           # Simple fallback without jq or templates
           MSG="$ICON ExFig: $TITLE\\n"
           MSG+="Command: $COMMAND_DISPLAY\\n"
-          MSG+="Assets: $ASSETS exported\\n"
+          if [[ -n "$CONFIGS_DISPLAY" ]]; then
+            MSG+="Configs: $CONFIGS_DISPLAY\\n"
+          fi
+          MSG+="Assets: $ASSETS_DISPLAY\\n"
           MSG+="Duration: $DURATION\\n"
           MSG+="Repository: $REPO\\n"
           MSG+="<$RUN_URL|View Run>"

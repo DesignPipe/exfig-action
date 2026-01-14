@@ -36,15 +36,17 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 
 ## Outputs
 
-| Output            | Description                                       |
-| ----------------- | ------------------------------------------------- |
-| `assets_exported` | Number of assets exported                         |
-| `changed_files`   | List of changed files (newline-separated)         |
-| `cache_hit`       | Whether cache was restored                        |
-| `exit_code`       | ExFig command exit code (0 = success)             |
-| `failed_count`    | Number of failed configs in batch mode            |
-| `duration`        | Execution duration (e.g., "5s")                   |
-| `config_summary`  | Summary of config files processed (batch command) |
+| Output             | Description                                         |
+| ------------------ | --------------------------------------------------- |
+| `assets_exported`  | Number of assets exported                           |
+| `changed_files`    | List of changed files (newline-separated)           |
+| `cache_hit`        | Whether cache was restored                          |
+| `exit_code`        | ExFig command exit code (0 = success)               |
+| `failed_count`     | Number of failed configs in batch mode              |
+| `duration`         | Execution duration (e.g., "5s")                     |
+| `config_summary`   | Summary of config files processed (batch command)   |
+| `validated_count`  | Number of configs validated from cache (no changes) |
+| `exported_configs` | Number of configs that exported new assets          |
 
 ## Examples
 
