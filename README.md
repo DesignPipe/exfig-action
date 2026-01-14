@@ -31,7 +31,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `verbose`          | Enable verbose logging                                                                 | No       | `false`             |
 | `extra_args`       | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
 | `slack_webhook`    | Slack Incoming Webhook URL for notifications                                           | No       | -                   |
-| `slack_mention`    | User/group to mention on failure (`@channel`, `<@U123>`)                               | No       | -                   |
+| `slack_mention`    | User/group to mention on failure (plain ID: `U123`, `S456`; or `@channel`)             | No       | -                   |
 | `slack_templates`  | Path to custom Slack templates directory (overrides defaults)                          | No       | -                   |
 
 ## Outputs
@@ -239,7 +239,7 @@ Send notifications to Slack when exports complete or fail:
     command: batch
     config: 'exfig/colors.yaml, exfig/icons.yaml'
     slack_webhook: ${{ secrets.SLACK_WEBHOOK }}
-    slack_mention: '<@U123456>'  # Mention on failure only
+    slack_mention: 'U123456'  # Mention on failure only (auto-formatted)
 ```
 
 ### Notification Types

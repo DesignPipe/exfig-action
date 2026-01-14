@@ -62,7 +62,7 @@ inputs:
     description: 'Slack Incoming Webhook URL for notifications'
     required: false
   slack_mention:
-    description: 'User/group to mention on failure (@channel, <@U123>)'
+    description: 'User/group to mention on failure (U123, S456, @channel, or full Slack format)'
     required: false
     default: ''
   slack_templates:
@@ -379,6 +379,19 @@ runs:
         CACHE_ENABLED="${{ inputs.cache }}"
         REPO="${{ github.repository }}"
         RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        # Format SLACK_MENTION: auto-wrap plain IDs
+        # U... -> <@U...> (user), S... -> <!subteam^S...> (group)
+        if [[ -n "$SLACK_MENTION" ]]; then
+          # Skip if already formatted or is @channel/@here
+          if [[ ! "$SLACK_MENTION" =~ ^[\<\@] && "$SLACK_MENTION" != "@channel" && "$SLACK_MENTION" != "@here" ]]; then
+            if [[ "$SLACK_MENTION" =~ ^U[A-Z0-9]+$ ]]; then
+              SLACK_MENTION="<@${SLACK_MENTION}>"
+            elif [[ "$SLACK_MENTION" =~ ^S[A-Z0-9]+$ ]]; then
+              SLACK_MENTION="<!subteam^${SLACK_MENTION}>"
+            fi
+          fi
+        fi
 
         # Build command display with config details for batch
         if [[ -n "$CONFIG_SUMMARY" ]]; then
