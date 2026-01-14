@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.13] - 2026-01-14
+
+### Bug Fixes
+
+- **action**: Use VALIDATED_COUNT for cache-hit detection in Slack notifications by @alexey1312
+
+
 ## [1.0.12] - 2026-01-14
 
 ### Features
