@@ -398,8 +398,6 @@ runs:
         EXPORTED_CONFIGS="${EXPORTED_CONFIGS:-0}"
         DURATION="${{ steps.run-exfig.outputs.duration }}"
         DURATION="${DURATION:-0s}"
-        CACHE_HIT="${{ steps.restore-cache.outputs.cache-hit }}"
-        CACHE_ENABLED="${{ inputs.cache }}"
         REPO="${{ github.repository }}"
         RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -447,8 +445,8 @@ runs:
         SUBTITLE=""
         TEMPLATE_NAME=""
         if [[ "$EXIT_CODE" == "0" ]]; then
-          # Check for cache hit with no changes
-          if [[ "$CACHE_ENABLED" == "true" && "$CACHE_HIT" == "true" && "$ASSETS" == "0" ]]; then
+          # Check for cache hit with no changes (all configs validated, no assets exported)
+          if [[ "$VALIDATED_COUNT" -gt 0 && "$ASSETS" == "0" ]]; then
             COLOR="#36a64f"
             ICON="💨"
             TITLE="No changes detected"
