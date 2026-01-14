@@ -58,6 +58,13 @@ inputs:
     description: 'Additional CLI arguments to pass to ExFig (e.g., "--force --dry-run")'
     required: false
     default: ''
+  slack_webhook:
+    description: 'Slack Incoming Webhook URL for notifications'
+    required: false
+  slack_mention:
+    description: 'User/group to mention on failure (@channel, <@U123>)'
+    required: false
+    default: ''
 
 outputs:
   assets_exported:
@@ -69,6 +76,9 @@ outputs:
   cache_hit:
     description: 'Whether cache was restored'
     value: ${{ steps.restore-cache.outputs.cache-hit }}
+  exit_code:
+    description: 'ExFig command exit code (0 = success)'
+    value: ${{ steps.run-exfig.outputs.exit_code }}
 
 runs:
   using: 'composite'
@@ -268,23 +278,28 @@ runs:
         eval $CMD 2>&1 | tee "$OUTPUT_FILE"
         EXIT_CODE=${PIPESTATUS[0]}
 
+        # ALWAYS set outputs before potential exit (for Slack notifications)
+        # Parse output for metrics (even on failure, partial results may exist)
+        ASSETS_COUNT=$(grep -oE 'Exported [0-9]+ assets?' "$OUTPUT_FILE" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+        echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
+
+        # ALWAYS set changed_files (empty if none)
+        if git rev-parse --git-dir > /dev/null 2>&1; then
+          CHANGED=$(git diff --name-only 2>/dev/null || echo "")
+        else
+          CHANGED=""
+        fi
+        echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGED" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+        # Save exit code for Slack notification step
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+        # Exit with original code AFTER setting outputs
         if [[ $EXIT_CODE -ne 0 ]]; then
           echo "::error::ExFig command failed with exit code $EXIT_CODE"
           exit $EXIT_CODE
-        fi
-
-        # Parse output for metrics
-        ASSETS_COUNT=$(grep -oE 'Exported [0-9]+ assets?' "$OUTPUT_FILE" | grep -oE '[0-9]+' || echo "0")
-        echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
-
-        # Get list of changed files (if git is available and in a repo)
-        if git rev-parse --git-dir > /dev/null 2>&1; then
-          CHANGED=$(git diff --name-only 2>/dev/null || echo "")
-          if [[ -n "$CHANGED" ]]; then
-            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
-            echo "$CHANGED" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
         fi
 
     # Step 8: Save cache (always, even on failure for checkpoint resume)
@@ -294,3 +309,78 @@ runs:
       with:
         path: ${{ inputs.cache_path }}
         key: ${{ inputs.cache_key_prefix }}-${{ github.run_id }}
+
+    # Step 9: Send Slack notification
+    - name: Send Slack notification
+      if: always() && inputs.slack_webhook != ''
+      shell: bash
+      env:
+        SLACK_WEBHOOK: ${{ inputs.slack_webhook }}
+        SLACK_MENTION: ${{ inputs.slack_mention }}
+      run: |
+        # Use exit_code from run-exfig (more reliable than job.status)
+        EXIT_CODE="${{ steps.run-exfig.outputs.exit_code }}"
+        EXIT_CODE="${EXIT_CODE:-1}"  # default to failure if not set
+
+        COMMAND="${{ inputs.command }}"
+        ASSETS="${{ steps.run-exfig.outputs.assets_exported }}"
+        ASSETS="${ASSETS:-0}"  # default to 0 if not set
+        REPO="${{ github.repository }}"
+        RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        if [[ "$EXIT_CODE" == "0" ]]; then
+          COLOR="#36a64f"
+          ICON="✅"
+          TITLE="Export completed"
+        else
+          COLOR="#dc3545"
+          ICON="❌"
+          TITLE="Export failed"
+          if [[ -n "$SLACK_MENTION" ]]; then
+            TITLE="$TITLE $SLACK_MENTION"
+          fi
+        fi
+
+        # Build Block Kit payload (JSON properly escaped with jq)
+        if command -v jq &>/dev/null; then
+          PAYLOAD=$(jq -n \
+            --arg color "$COLOR" \
+            --arg icon "$ICON" \
+            --arg title "$TITLE" \
+            --arg command "$COMMAND" \
+            --arg assets "$ASSETS" \
+            --arg repo "$REPO" \
+            --arg url "$RUN_URL" \
+            '{
+              attachments: [{
+                color: $color,
+                blocks: [
+                  {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                  {type: "section", fields: [
+                    {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                    {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
+                  ]},
+                  {type: "section", fields: [
+                    {type: "mrkdwn", text: "*Repository:*\n\($repo)"}
+                  ]},
+                  {type: "actions", elements: [
+                    {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
+                  ]}
+                ]
+              }]
+            }')
+        else
+          # Fallback without jq (simpler message)
+          PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"text\":\"$ICON ExFig: $TITLE\\nCommand: $COMMAND\\nAssets: $ASSETS exported\\nRepository: $REPO\\n<$RUN_URL|View Run>\"}]}"
+        fi
+
+        # Send with error handling
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X POST -H 'Content-type: application/json' \
+          --data "$PAYLOAD" "$SLACK_WEBHOOK")
+
+        if [[ "$HTTP_CODE" != "200" ]]; then
+          echo "::warning::Slack notification failed with HTTP $HTTP_CODE"
+        else
+          echo "Slack notification sent successfully"
+        fi

@@ -30,6 +30,8 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `output_dir`       | Output directory for exported assets                                                   | No       | -                   |
 | `verbose`          | Enable verbose logging                                                                 | No       | `false`             |
 | `extra_args`       | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
+| `slack_webhook`    | Slack Incoming Webhook URL for notifications                                           | No       | -                   |
+| `slack_mention`    | User/group to mention on failure (`@channel`, `<@U123>`)                               | No       | -                   |
 
 ## Outputs
 
@@ -38,6 +40,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `assets_exported` | Number of assets exported                 |
 | `changed_files`   | List of changed files (newline-separated) |
 | `cache_hit`       | Whether cache was restored                |
+| `exit_code`       | ExFig command exit code (0 = success)     |
 
 ## Examples
 
