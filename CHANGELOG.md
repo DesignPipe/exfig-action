@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.12] - 2026-01-14
+
+### Features
+
+- **action**: Show configs in Slack Command field for batch notifications by @alexey1312
+
+
 ## [1.0.11] - 2026-01-14
 
 ### Bug Fixes
