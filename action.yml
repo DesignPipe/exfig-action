@@ -317,12 +317,13 @@ runs:
         echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
 
         # Parse validated (cached) configs - match ExFig output: "✓ config.yaml - validated"
-        VALIDATED_COUNT=$(grep -cE '^✓.*- validated' "$OUTPUT_FILE" 2>/dev/null)
+        # Note: grep -c returns exit 1 when no matches, need || true for set -e
+        VALIDATED_COUNT=$(grep -cE '^✓.*- validated' "$OUTPUT_FILE" 2>/dev/null || true)
         VALIDATED_COUNT="${VALIDATED_COUNT:-0}"
         echo "validated_count=$VALIDATED_COUNT" >> $GITHUB_OUTPUT
 
         # Count configs with actual exports (not just validated)
-        EXPORTED_CONFIGS=$(grep -cE '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null)
+        EXPORTED_CONFIGS=$(grep -cE '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null || true)
         EXPORTED_CONFIGS="${EXPORTED_CONFIGS:-0}"
         echo "exported_configs=$EXPORTED_CONFIGS" >> $GITHUB_OUTPUT
 
