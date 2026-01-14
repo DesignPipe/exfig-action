@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.10] - 2026-01-14
+
+### Bug Fixes
+
+- **action**: Add || true for ASSETS_COUNT grep pipeline by @alexey1312
+
+
 ## [1.0.9] - 2026-01-14
 
 ### Bug Fixes
