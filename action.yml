@@ -317,11 +317,13 @@ runs:
         echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
 
         # Parse validated (cached) configs - match ExFig output: "✓ config.yaml - validated"
-        VALIDATED_COUNT=$(grep -cE '^✓.*- validated' "$OUTPUT_FILE" 2>/dev/null || echo "0")
+        VALIDATED_COUNT=$(grep -cE '^✓.*- validated' "$OUTPUT_FILE" 2>/dev/null)
+        VALIDATED_COUNT="${VALIDATED_COUNT:-0}"
         echo "validated_count=$VALIDATED_COUNT" >> $GITHUB_OUTPUT
 
         # Count configs with actual exports (not just validated)
-        EXPORTED_CONFIGS=$(grep -cE '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null || echo "0")
+        EXPORTED_CONFIGS=$(grep -cE '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null)
+        EXPORTED_CONFIGS="${EXPORTED_CONFIGS:-0}"
         echo "exported_configs=$EXPORTED_CONFIGS" >> $GITHUB_OUTPUT
 
         # Parse failure count from batch output: "Batch complete: X succeeded, Y failed"
@@ -504,24 +506,21 @@ runs:
               '{
                 attachments: [{
                   color: $color,
-                  blocks: [
-                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-                    {type: "section", fields: [
-                      {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}
-                    ]},
-                    (if $configs != "" then
-                      {type: "section", text: {type: "mrkdwn", text: "*Configs:*\\n\($configs)"}}
-                    else empty end),
-                    {type: "section", fields: [
-                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
-                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
-                    ]},
-                    {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
-                    {type: "actions", elements: [
-                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
-                    ]}
-                  ]
+                  blocks: (
+                    [{type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                     {type: "section", fields: [
+                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                       {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]}]
+                    + (if ($configs | length) > 0 then
+                        [{type: "section", text: {type: "mrkdwn", text: "*Configs:*\n\($configs)"}}]
+                      else [] end)
+                    + [{type: "section", fields: [
+                         {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                         {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+                       {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
+                       {type: "actions", elements: [
+                         {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}]
+                  )
                 }]
               }')
           else
@@ -538,23 +537,20 @@ runs:
               '{
                 attachments: [{
                   color: $color,
-                  blocks: [
-                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-                    {type: "section", fields: [
-                      {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}
-                    ]},
-                    (if $configs != "" then
-                      {type: "section", text: {type: "mrkdwn", text: "*Configs:*\\n\($configs)"}}
-                    else empty end),
-                    {type: "section", fields: [
-                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
-                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
-                    ]},
-                    {type: "actions", elements: [
-                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
-                    ]}
-                  ]
+                  blocks: (
+                    [{type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                     {type: "section", fields: [
+                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                       {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]}]
+                    + (if ($configs | length) > 0 then
+                        [{type: "section", text: {type: "mrkdwn", text: "*Configs:*\n\($configs)"}}]
+                      else [] end)
+                    + [{type: "section", fields: [
+                         {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                         {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+                       {type: "actions", elements: [
+                         {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}]
+                  )
                 }]
               }')
           fi

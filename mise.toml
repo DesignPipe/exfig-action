@@ -37,9 +37,9 @@ python = "3.13"
 git-cliff = "2.10.1"
 
 # --- Git Hooks & Formatting ---
-hk = "1.28.0"        # Git hooks manager
-dprint = "0.50.2"    # MD formatting (Rust, fast)
-pkl = "0.30.2"       # Configuration language (for hk.pkl)
+hk = "1.28.0"     # Git hooks manager
+dprint = "0.50.2" # MD formatting (Rust, fast)
+pkl = "0.30.2"    # Configuration language (for hk.pkl)
 
 # --- Linting ---
 actionlint = "1.7.9" # GitHub Actions linting
