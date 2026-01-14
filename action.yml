@@ -423,10 +423,11 @@ runs:
         if [[ -n "$CONFIG_SUMMARY" ]]; then
           # Convert comma-separated to bullet list with \n for JSON/Slack
           # Use |NL| placeholder then replace with \\n (escaped for sed to produce \n)
+          # Add leading \n so configs appear on new line after command
           CONFIGS_DISPLAY=$(echo "$CONFIG_SUMMARY" | tr ',' '\n' \
             | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sed 's/^/• /' \
             | while IFS= read -r line; do printf '%s|NL|' "$line"; done \
-            | sed 's/|NL|$//' | sed 's/|NL|/\\\\n/g')
+            | sed 's/|NL|$//' | sed 's/|NL|/\\\\n/g' | sed 's/^/\\\\n/')
         else
           CONFIGS_DISPLAY=""
         fi
@@ -512,21 +513,18 @@ runs:
               '{
                 attachments: [{
                   color: $color,
-                  blocks: (
-                    [{type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-                     {type: "section", fields: [
-                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                       {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]}]
-                    + (if ($configs | length) > 0 then
-                        [{type: "section", text: {type: "mrkdwn", text: "*Configs:*\n\($configs)"}}]
-                      else [] end)
-                    + [{type: "section", fields: [
-                         {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
-                         {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
-                       {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
-                       {type: "actions", elements: [
-                         {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}]
-                  )
+                  blocks: [
+                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Command:*\n`\($command)`\($configs)"},
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+                    {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
+                    {type: "actions", elements: [
+                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}
+                  ]
                 }]
               }')
           else
@@ -543,20 +541,17 @@ runs:
               '{
                 attachments: [{
                   color: $color,
-                  blocks: (
-                    [{type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-                     {type: "section", fields: [
-                       {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                       {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]}]
-                    + (if ($configs | length) > 0 then
-                        [{type: "section", text: {type: "mrkdwn", text: "*Configs:*\n\($configs)"}}]
-                      else [] end)
-                    + [{type: "section", fields: [
-                         {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
-                         {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
-                       {type: "actions", elements: [
-                         {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}]
-                  )
+                  blocks: [
+                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Command:*\n`\($command)`\($configs)"},
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+                    {type: "actions", elements: [
+                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}
+                  ]
                 }]
               }')
           fi

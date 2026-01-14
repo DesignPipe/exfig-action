@@ -13,7 +13,7 @@
       {
         "type": "section",
         "fields": [
-          {"type": "mrkdwn", "text": "*Command:*\n`{{COMMAND}}`"},
+          {"type": "mrkdwn", "text": "*Command:*\n`{{COMMAND}}`{{CONFIGS}}"},
           {"type": "mrkdwn", "text": "*Assets:*\n{{ASSETS}}"}
         ]
       },

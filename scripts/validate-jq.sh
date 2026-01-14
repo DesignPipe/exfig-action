@@ -14,7 +14,7 @@ test_jq_template() {
     --arg icon "✅" \
     --arg title "Test" \
     --arg command "batch" \
-    --arg configs "• test.yaml" \
+    --arg configs "\\n• test.yaml" \
     --arg assets "10 exported" \
     --arg repo "test/repo" \
     --arg duration "5s" \
@@ -23,21 +23,18 @@ test_jq_template() {
     '{
       attachments: [{
         color: $color,
-        blocks: (
-          [{type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-           {type: "section", fields: [
-             {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-             {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]}]
-          + (if ($configs | length) > 0 then
-              [{type: "section", text: {type: "mrkdwn", text: "*Configs:*\n\($configs)"}}]
-            else [] end)
-          + [{type: "section", fields: [
-               {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
-               {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
-             {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
-             {type: "actions", elements: [
-               {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}]
-        )
+        blocks: [
+          {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+          {type: "section", fields: [
+            {type: "mrkdwn", text: "*Command:*\n`\($command)`\($configs)"},
+            {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]},
+          {type: "section", fields: [
+            {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+            {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+          {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
+          {type: "actions", elements: [
+            {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}
+        ]
       }]
     }' 2>&1) || {
     echo "FAIL: $name - jq syntax error"
