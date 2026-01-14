@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.5] - 2026-01-14
+
+### Features
+
+- **action**: Add Slack notifications and exit_code output by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- Migrate from pre-commit to hk hooks manager by @alexey1312
+
+
 ## [1.0.4] - 2025-12-24
 
 ### Bug Fixes
