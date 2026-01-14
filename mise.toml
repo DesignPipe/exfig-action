@@ -20,45 +20,72 @@ experimental = true
 legacy_version_file = false
 
 # =============================================================================
+# Git Hooks (native git mechanism via core.hooksPath)
+# =============================================================================
+# Hooks are stored in .githooks/ directory (tracked in repo)
+# Auto-configures on directory entry via hooks.enter
+
+[hooks.enter]
+run = "git config core.hooksPath .githooks 2>/dev/null || true"
+
+# =============================================================================
 # Tools
 # =============================================================================
 
 [tools]
 python = "3.13"
-pre-commit = "4.5.0"
 git-cliff = "2.10.1"
-# Note: mdformat is managed by pre-commit with plugins (mdformat-tables, etc.)
+
+# --- Git Hooks & Formatting ---
+hk = "1.28.0"        # Git hooks manager
+dprint = "0.50.2"    # MD formatting (Rust, fast)
+pkl = "0.30.2"       # Configuration language (for hk.pkl)
+
+# --- Linting ---
+actionlint = "1.7.9" # GitHub Actions linting
+yamllint = "1.35.1"  # YAML linting
 
 # =============================================================================
 # Tasks
 # =============================================================================
 
 [tasks.setup]
-description = "Install tools and configure pre-commit hooks"
-run = """
-# Install pre-commit hooks (both pre-commit and commit-msg stages)
-pre-commit install
-pre-commit install --hook-type commit-msg
-
-# Pre-install mdformat hook to avoid delay on first commit
-pre-commit install-hooks
-"""
+description = "Show git hooks status"
+run = "echo 'Git hooks:' && git config core.hooksPath && ls -la .githooks/"
 
 [tasks.pre-commit]
-description = "Run pre-commit on all files"
-run = "pre-commit run --all-files"
+description = "Run all pre-commit checks"
+run = """
+set -o pipefail
+hk check --all 2>&1 | grep -E '^(✔|✗|hk )' || true
+"""
+
+[tasks.format]
+description = "Format all files (Markdown)"
+run = "hk fix --all 2>&1 | grep -E '^(✔|✗|hk )' || true"
+
+[tasks.format-check]
+description = "Check all formatting (CI)"
+run = """
+set -o pipefail
+hk check --all 2>&1 | grep -E '^(✔|✗|hk )'
+"""
 
 [tasks.format-md]
 description = "Format markdown files"
-run = "pre-commit run mdformat --all-files || true"
+run = "dprint fmt"
 
 [tasks.format-md-check]
 description = "Check markdown formatting (CI)"
-run = "pre-commit run mdformat --all-files"
+run = "dprint check"
 
 [tasks.lint-yaml]
 description = "Lint YAML files"
-run = "pre-commit run yamllint --all-files"
+run = "yamllint -c .yamllint.yaml *.yml *.yaml .github/workflows/*.yml"
+
+[tasks.lint-actions]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"
 
 [tasks.changelog]
 description = "Generate CHANGELOG.md from git history"

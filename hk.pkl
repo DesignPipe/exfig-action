@@ -1,0 +1,104 @@
+amends "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.28.0/hk@1.28.0#/Builtins.pkl"
+
+// =============================================================================
+// hk Configuration for ExFig Action
+// =============================================================================
+// Migrated from pre-commit
+// All hooks run in parallel for maximum performance
+// =============================================================================
+
+// Excludes for generated files
+local generated_excludes = List("CHANGELOG.md")
+
+// =============================================================================
+// dprint Formatter (Markdown) - Rust-based, fast
+// =============================================================================
+
+local dprint_checks = new Mapping<String, Step> {
+    ["dprint"] = (Builtins.dprint) {
+        exclude = List("CHANGELOG.md", ".claude/**", "openspec/**")
+        stage = List("*.md")
+        check_first = true
+        hide = true
+    }
+}
+
+// =============================================================================
+// YAML Linting
+// =============================================================================
+
+local yaml_checks = new Mapping<String, Step> {
+    ["yamllint"] {
+        glob = List("*.yml", "*.yaml")
+        check = "yamllint -c .yamllint.yaml {{files}}"
+        batch = true
+        hide = true
+    }
+    ["actionlint"] {
+        glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+        check = "actionlint {{files}}"
+        batch = true
+        hide = true
+    }
+}
+
+// =============================================================================
+// Builtin Checks (fast, parallel)
+// =============================================================================
+
+local builtin_checks = new Mapping<String, Step> {
+    ["trailing-whitespace"] = (Builtins.trailing_whitespace) {
+        exclude = generated_excludes
+        hide = true
+    }
+    ["check-merge-conflict"] = (Builtins.check_merge_conflict) {
+        hide = true
+    }
+    ["newlines"] = (Builtins.newlines) {
+        exclude = generated_excludes
+        hide = true
+    }
+}
+
+// =============================================================================
+// Combined Linters
+// =============================================================================
+
+local all_linters = new Mapping<String, Step> {
+    ...dprint_checks
+    ...yaml_checks
+    ...builtin_checks
+}
+
+// =============================================================================
+// Hooks Configuration
+// =============================================================================
+
+hooks {
+    // Pre-commit: runs all linters with auto-fix
+    // Using patch-file stash mode to properly handle untracked files
+    ["pre-commit"] {
+        fix = true
+        stash = "patch-file"
+        steps = all_linters
+    }
+
+    // Commit-msg: validate conventional commits format
+    ["commit-msg"] {
+        steps {
+            ["conventional-commit"] = Builtins.check_conventional_commit
+        }
+    }
+
+    // Helper: run all linters with fix
+    ["fix"] {
+        fix = true
+        steps = all_linters
+    }
+
+    // Helper: run all linters without fix
+    ["check"] {
+        steps = all_linters
+    }
+}

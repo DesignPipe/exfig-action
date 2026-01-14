@@ -56,13 +56,17 @@ The action executes these steps in order:
 No global mise installation required - `./bin/mise` is a self-contained bootstrap binary.
 
 ```bash
-./bin/mise run setup              # Install pre-commit hooks
-./bin/mise run pre-commit         # Run all checks
+./bin/mise run setup              # Show git hooks status
+./bin/mise run pre-commit         # Run all checks (hk check)
+./bin/mise run format             # Auto-fix all formatting issues
+./bin/mise run format-md          # Format markdown files (dprint)
 ./bin/mise run lint-yaml          # YAML linting only
-./bin/mise run format-md          # Format markdown files
+./bin/mise run lint-actions       # Lint GitHub Actions workflows
 ./bin/mise run changelog          # Regenerate CHANGELOG.md
 ./bin/mise run changelog:unreleased  # Preview unreleased changes
 ```
+
+Git hooks are configured automatically via `hooks.enter` in mise.toml when entering the directory. Hooks use `hk` (git hooks manager) with configuration in `hk.pkl`.
 
 ## Commit Conventions
 
