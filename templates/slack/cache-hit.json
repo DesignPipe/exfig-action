@@ -1,0 +1,45 @@
+{
+  "attachments": [{
+    "color": "{{COLOR}}",
+    "blocks": [
+      {
+        "type": "header",
+        "text": {
+          "type": "plain_text",
+          "text": "{{ICON}} ExFig: {{TITLE}}",
+          "emoji": true
+        }
+      },
+      {
+        "type": "section",
+        "fields": [
+          {"type": "mrkdwn", "text": "*Command:*\n`{{COMMAND}}`"},
+          {"type": "mrkdwn", "text": "*Assets:*\n{{ASSETS}} exported"}
+        ]
+      },
+      {
+        "type": "section",
+        "fields": [
+          {"type": "mrkdwn", "text": "*Repository:*\n{{REPO}}"},
+          {"type": "mrkdwn", "text": "*Duration:*\n{{DURATION}}"}
+        ]
+      },
+      {
+        "type": "context",
+        "elements": [
+          {"type": "mrkdwn", "text": "{{SUBTITLE}}"}
+        ]
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "View Run", "emoji": true},
+            "url": "{{RUN_URL}}"
+          }
+        ]
+      }
+    ]
+  }]
+}

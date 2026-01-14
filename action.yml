@@ -65,6 +65,10 @@ inputs:
     description: 'User/group to mention on failure (@channel, <@U123>)'
     required: false
     default: ''
+  slack_templates:
+    description: 'Path to custom Slack templates directory (overrides defaults)'
+    required: false
+    default: ''
 
 outputs:
   assets_exported:
@@ -356,6 +360,8 @@ runs:
       env:
         SLACK_WEBHOOK: ${{ inputs.slack_webhook }}
         SLACK_MENTION: ${{ inputs.slack_mention }}
+        SLACK_TEMPLATES: ${{ inputs.slack_templates }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         # Use exit_code from run-exfig (more reliable than job.status)
         EXIT_CODE="${{ steps.run-exfig.outputs.exit_code }}"
@@ -381,8 +387,9 @@ runs:
           COMMAND_DISPLAY="$COMMAND"
         fi
 
-        # Determine status, icon, and context based on result
+        # Determine status, icon, template, and context based on result
         SUBTITLE=""
+        TEMPLATE_NAME=""
         if [[ "$EXIT_CODE" == "0" ]]; then
           # Check for cache hit with no changes
           if [[ "$CACHE_ENABLED" == "true" && "$CACHE_HIT" == "true" && "$ASSETS" == "0" ]]; then
@@ -390,15 +397,18 @@ runs:
             ICON="💨"
             TITLE="No changes detected"
             SUBTITLE="Cache hit - all assets up to date"
+            TEMPLATE_NAME="cache-hit.json"
           else
             COLOR="#36a64f"
             ICON="✅"
             TITLE="Export completed"
+            TEMPLATE_NAME="success.json"
           fi
         else
           COLOR="#dc3545"
           ICON="❌"
           TITLE="Export failed"
+          TEMPLATE_NAME="failure.json"
           if [[ "$FAILED_COUNT" -gt 0 ]]; then
             SUBTITLE="$FAILED_COUNT config(s) failed"
           fi
@@ -407,9 +417,30 @@ runs:
           fi
         fi
 
-        # Build Block Kit payload (JSON properly escaped with jq)
-        if command -v jq &>/dev/null; then
-          # Build blocks array conditionally
+        # Resolve template path (user override or default)
+        TEMPLATE_FILE=""
+        if [[ -n "$SLACK_TEMPLATES" && -f "$SLACK_TEMPLATES/$TEMPLATE_NAME" ]]; then
+          TEMPLATE_FILE="$SLACK_TEMPLATES/$TEMPLATE_NAME"
+          echo "Using custom template: $TEMPLATE_FILE"
+        elif [[ -f "$ACTION_PATH/templates/slack/$TEMPLATE_NAME" ]]; then
+          TEMPLATE_FILE="$ACTION_PATH/templates/slack/$TEMPLATE_NAME"
+        fi
+
+        # Build payload from template or inline
+        if [[ -n "$TEMPLATE_FILE" ]] && command -v sed &>/dev/null; then
+          # Load template and substitute variables
+          PAYLOAD=$(cat "$TEMPLATE_FILE" | sed \
+            -e "s|{{COLOR}}|$COLOR|g" \
+            -e "s|{{ICON}}|$ICON|g" \
+            -e "s|{{TITLE}}|$TITLE|g" \
+            -e "s|{{COMMAND}}|$COMMAND_DISPLAY|g" \
+            -e "s|{{ASSETS}}|$ASSETS|g" \
+            -e "s|{{DURATION}}|$DURATION|g" \
+            -e "s|{{REPO}}|$REPO|g" \
+            -e "s|{{SUBTITLE}}|$SUBTITLE|g" \
+            -e "s|{{RUN_URL}}|$RUN_URL|g")
+        elif command -v jq &>/dev/null; then
+          # Fallback to inline jq generation
           if [[ -n "$SUBTITLE" ]]; then
             PAYLOAD=$(jq -n \
               --arg color "$COLOR" \
@@ -472,7 +503,7 @@ runs:
               }')
           fi
         else
-          # Fallback without jq (simpler message)
+          # Simple fallback without jq or templates
           MSG="$ICON ExFig: $TITLE\\n"
           MSG+="Command: $COMMAND_DISPLAY\\n"
           MSG+="Assets: $ASSETS exported\\n"

@@ -32,6 +32,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `extra_args`       | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
 | `slack_webhook`    | Slack Incoming Webhook URL for notifications                                           | No       | -                   |
 | `slack_mention`    | User/group to mention on failure (`@channel`, `<@U123>`)                               | No       | -                   |
+| `slack_templates`  | Path to custom Slack templates directory (overrides defaults)                          | No       | -                   |
 
 ## Outputs
 
@@ -255,6 +256,42 @@ Send notifications to Slack when exports complete or fail:
 - **Assets**: Number of exported assets
 - **Duration**: Execution time
 - **Repository**: Link to GitHub Actions run
+
+### Custom Templates
+
+Override default notification templates with your own Slack Block Kit JSON:
+
+```yaml
+- uses: alexey1312/exfig-action@v1
+  with:
+    figma_token: ${{ secrets.FIGMA_TOKEN }}
+    command: icons
+    slack_webhook: ${{ secrets.SLACK_WEBHOOK }}
+    slack_templates: '.github/exfig-templates'
+```
+
+Create only the templates you want to override:
+
+```
+.github/exfig-templates/
+├── success.json      # Override success message
+├── failure.json      # Override failure message
+└── cache-hit.json    # Override cache hit message
+```
+
+Templates support these placeholders:
+
+| Variable       | Description          | Example                  |
+| -------------- | -------------------- | ------------------------ |
+| `{{ICON}}`     | Status icon          | ✅, ❌, 💨               |
+| `{{TITLE}}`    | Main title           | "Export completed"       |
+| `{{COMMAND}}`  | Command with configs | "batch (colors.yaml)"    |
+| `{{ASSETS}}`   | Assets count         | "140"                    |
+| `{{DURATION}}` | Execution time       | "5s"                     |
+| `{{REPO}}`     | Repository name      | "org/repo"               |
+| `{{RUN_URL}}`  | Actions run URL      | "https://github.com/..." |
+| `{{SUBTITLE}}` | Context text         | "2 config(s) failed"     |
+| `{{COLOR}}`    | Attachment color     | "#36a64f"                |
 
 ## Troubleshooting
 
