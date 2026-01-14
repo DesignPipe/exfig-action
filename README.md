@@ -35,12 +35,15 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 
 ## Outputs
 
-| Output            | Description                               |
-| ----------------- | ----------------------------------------- |
-| `assets_exported` | Number of assets exported                 |
-| `changed_files`   | List of changed files (newline-separated) |
-| `cache_hit`       | Whether cache was restored                |
-| `exit_code`       | ExFig command exit code (0 = success)     |
+| Output            | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `assets_exported` | Number of assets exported                         |
+| `changed_files`   | List of changed files (newline-separated)         |
+| `cache_hit`       | Whether cache was restored                        |
+| `exit_code`       | ExFig command exit code (0 = success)             |
+| `failed_count`    | Number of failed configs in batch mode            |
+| `duration`        | Execution duration (e.g., "5s")                   |
+| `config_summary`  | Summary of config files processed (batch command) |
 
 ## Examples
 
@@ -223,6 +226,35 @@ typography:
 ```
 
 See [ExFig documentation](https://github.com/alexey1312/exfig) for full configuration options.
+
+## Slack Notifications
+
+Send notifications to Slack when exports complete or fail:
+
+```yaml
+- uses: alexey1312/exfig-action@v1
+  with:
+    figma_token: ${{ secrets.FIGMA_TOKEN }}
+    command: batch
+    config: 'exfig/colors.yaml, exfig/icons.yaml'
+    slack_webhook: ${{ secrets.SLACK_WEBHOOK }}
+    slack_mention: '<@U123456>'  # Mention on failure only
+```
+
+### Notification Types
+
+| Status    | Icon | Description                                 |
+| --------- | ---- | ------------------------------------------- |
+| Success   | ✅   | Export completed successfully               |
+| Failure   | ❌   | Export failed (mentions user if configured) |
+| Cache hit | 💨   | No changes detected, all assets up to date  |
+
+### Message Contents
+
+- **Command**: Shows command and config files (e.g., `batch (colors.yaml, icons.yaml)`)
+- **Assets**: Number of exported assets
+- **Duration**: Execution time
+- **Repository**: Link to GitHub Actions run
 
 ## Troubleshooting
 

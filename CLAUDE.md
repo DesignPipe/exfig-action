@@ -30,7 +30,7 @@ ExFig Action is a composite GitHub Action (shell-based) that exports Figma asset
 
 **Key Files:**
 
-- `action.yml` - Main action definition with 8 sequential steps
+- `action.yml` - Main action definition with 9 sequential steps
 - `mise.toml` - Tool versions and task definitions
 - `cliff.toml` - Changelog generation config
 
@@ -46,6 +46,7 @@ The action executes these steps in order:
 6. **Restore asset cache** - Optionally restore `.exfig-cache.json` for incremental exports
 7. **Run ExFig** - Execute command with all flags, capture output metrics
 8. **Save asset cache** - Persist cache even on failure (checkpoint resume)
+9. **Send Slack notification** - If webhook configured, send status notification
 
 **Binary naming:** The ExFig binary is named `ExFig` (capital letters), not `exfig`.
 

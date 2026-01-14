@@ -79,6 +79,15 @@ outputs:
   exit_code:
     description: 'ExFig command exit code (0 = success)'
     value: ${{ steps.run-exfig.outputs.exit_code }}
+  failed_count:
+    description: 'Number of failed configs in batch mode'
+    value: ${{ steps.run-exfig.outputs.failed_count }}
+  duration:
+    description: 'Execution duration in seconds'
+    value: ${{ steps.run-exfig.outputs.duration }}
+  config_summary:
+    description: 'Summary of config files processed (for batch command)'
+    value: ${{ steps.run-exfig.outputs.config_summary }}
 
 runs:
   using: 'composite'
@@ -200,6 +209,9 @@ runs:
       env:
         FIGMA_PERSONAL_TOKEN: ${{ inputs.figma_token }}
       run: |
+        # Track execution time
+        START_TIME=$(date +%s)
+
         # Build command
         CMD="ExFig ${{ inputs.command }}"
 
@@ -223,8 +235,13 @@ runs:
             echo "::error::No valid config files found for batch command"
             exit 1
           fi
+          # Create config summary (just filenames for batch command)
+          CONFIG_SUMMARY=$(printf '%s\n' "${CONFIG_PATHS[@]}" | xargs -n1 basename | tr '\n' ', ' | sed 's/,$//')
         elif [[ -f "${{ inputs.config }}" ]]; then
+          CONFIG_SUMMARY=""
           CMD="$CMD -i \"${{ inputs.config }}\""
+        else
+          CONFIG_SUMMARY=""
         fi
 
         # Add filter if provided
@@ -278,10 +295,32 @@ runs:
         eval $CMD 2>&1 | tee "$OUTPUT_FILE"
         EXIT_CODE=${PIPESTATUS[0]}
 
+        # Calculate duration
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        echo "duration=${DURATION}s" >> $GITHUB_OUTPUT
+
         # ALWAYS set outputs before potential exit (for Slack notifications)
-        # Parse output for metrics (even on failure, partial results may exist)
-        ASSETS_COUNT=$(grep -oE 'Exported [0-9]+ assets?' "$OUTPUT_FILE" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+        # Parse output for metrics - match ExFig output: "✓ config.yaml - N colors/icons"
+        ASSETS_COUNT=$(grep -E '^✓.*- [0-9]+ ' "$OUTPUT_FILE" 2>/dev/null \
+          | grep -oE '[0-9]+' | awk '{sum+=$1} END {print sum+0}')
         echo "assets_exported=$ASSETS_COUNT" >> $GITHUB_OUTPUT
+
+        # Parse failure count from batch output: "Batch complete: X succeeded, Y failed"
+        FAILED_COUNT=$(grep -oE '[0-9]+ failed' "$OUTPUT_FILE" 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
+        if [[ -z "$FAILED_COUNT" ]]; then
+          FAILED_COUNT="0"
+        fi
+        echo "failed_count=$FAILED_COUNT" >> $GITHUB_OUTPUT
+
+        # Override exit code if ExFig reported failures but returned 0
+        if [[ "$FAILED_COUNT" -gt 0 && "$EXIT_CODE" -eq 0 ]]; then
+          echo "::warning::ExFig reported $FAILED_COUNT failure(s) but returned exit code 0"
+          EXIT_CODE=1
+        fi
+
+        # Output config summary
+        echo "config_summary=$CONFIG_SUMMARY" >> $GITHUB_OUTPUT
 
         # ALWAYS set changed_files (empty if none)
         if git rev-parse --git-dir > /dev/null 2>&1; then
@@ -323,19 +362,46 @@ runs:
         EXIT_CODE="${EXIT_CODE:-1}"  # default to failure if not set
 
         COMMAND="${{ inputs.command }}"
+        CONFIG_SUMMARY="${{ steps.run-exfig.outputs.config_summary }}"
         ASSETS="${{ steps.run-exfig.outputs.assets_exported }}"
         ASSETS="${ASSETS:-0}"  # default to 0 if not set
+        FAILED_COUNT="${{ steps.run-exfig.outputs.failed_count }}"
+        FAILED_COUNT="${FAILED_COUNT:-0}"
+        DURATION="${{ steps.run-exfig.outputs.duration }}"
+        DURATION="${DURATION:-0s}"
+        CACHE_HIT="${{ steps.restore-cache.outputs.cache-hit }}"
+        CACHE_ENABLED="${{ inputs.cache }}"
         REPO="${{ github.repository }}"
         RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
+        # Build command display with config details for batch
+        if [[ -n "$CONFIG_SUMMARY" ]]; then
+          COMMAND_DISPLAY="$COMMAND ($CONFIG_SUMMARY)"
+        else
+          COMMAND_DISPLAY="$COMMAND"
+        fi
+
+        # Determine status, icon, and context based on result
+        SUBTITLE=""
         if [[ "$EXIT_CODE" == "0" ]]; then
-          COLOR="#36a64f"
-          ICON="✅"
-          TITLE="Export completed"
+          # Check for cache hit with no changes
+          if [[ "$CACHE_ENABLED" == "true" && "$CACHE_HIT" == "true" && "$ASSETS" == "0" ]]; then
+            COLOR="#36a64f"
+            ICON="💨"
+            TITLE="No changes detected"
+            SUBTITLE="Cache hit - all assets up to date"
+          else
+            COLOR="#36a64f"
+            ICON="✅"
+            TITLE="Export completed"
+          fi
         else
           COLOR="#dc3545"
           ICON="❌"
           TITLE="Export failed"
+          if [[ "$FAILED_COUNT" -gt 0 ]]; then
+            SUBTITLE="$FAILED_COUNT config(s) failed"
+          fi
           if [[ -n "$SLACK_MENTION" ]]; then
             TITLE="$TITLE $SLACK_MENTION"
           fi
@@ -343,35 +409,77 @@ runs:
 
         # Build Block Kit payload (JSON properly escaped with jq)
         if command -v jq &>/dev/null; then
-          PAYLOAD=$(jq -n \
-            --arg color "$COLOR" \
-            --arg icon "$ICON" \
-            --arg title "$TITLE" \
-            --arg command "$COMMAND" \
-            --arg assets "$ASSETS" \
-            --arg repo "$REPO" \
-            --arg url "$RUN_URL" \
-            '{
-              attachments: [{
-                color: $color,
-                blocks: [
-                  {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
-                  {type: "section", fields: [
-                    {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
-                    {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
-                  ]},
-                  {type: "section", fields: [
-                    {type: "mrkdwn", text: "*Repository:*\n\($repo)"}
-                  ]},
-                  {type: "actions", elements: [
-                    {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
-                  ]}
-                ]
-              }]
-            }')
+          # Build blocks array conditionally
+          if [[ -n "$SUBTITLE" ]]; then
+            PAYLOAD=$(jq -n \
+              --arg color "$COLOR" \
+              --arg icon "$ICON" \
+              --arg title "$TITLE" \
+              --arg command "$COMMAND_DISPLAY" \
+              --arg assets "$ASSETS" \
+              --arg repo "$REPO" \
+              --arg duration "$DURATION" \
+              --arg subtitle "$SUBTITLE" \
+              --arg url "$RUN_URL" \
+              '{
+                attachments: [{
+                  color: $color,
+                  blocks: [
+                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
+                    ]},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
+                    ]},
+                    {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
+                    {type: "actions", elements: [
+                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
+                    ]}
+                  ]
+                }]
+              }')
+          else
+            PAYLOAD=$(jq -n \
+              --arg color "$COLOR" \
+              --arg icon "$ICON" \
+              --arg title "$TITLE" \
+              --arg command "$COMMAND_DISPLAY" \
+              --arg assets "$ASSETS" \
+              --arg repo "$REPO" \
+              --arg duration "$DURATION" \
+              --arg url "$RUN_URL" \
+              '{
+                attachments: [{
+                  color: $color,
+                  blocks: [
+                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets) exported"}
+                    ]},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}
+                    ]},
+                    {type: "actions", elements: [
+                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}
+                    ]}
+                  ]
+                }]
+              }')
+          fi
         else
           # Fallback without jq (simpler message)
-          PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"text\":\"$ICON ExFig: $TITLE\\nCommand: $COMMAND\\nAssets: $ASSETS exported\\nRepository: $REPO\\n<$RUN_URL|View Run>\"}]}"
+          MSG="$ICON ExFig: $TITLE\\n"
+          MSG+="Command: $COMMAND_DISPLAY\\n"
+          MSG+="Assets: $ASSETS exported\\n"
+          MSG+="Duration: $DURATION\\n"
+          MSG+="Repository: $REPO\\n"
+          MSG+="<$RUN_URL|View Run>"
+          PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"text\":\"$MSG\"}]}"
         fi
 
         # Send with error handling
