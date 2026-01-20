@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.14] - 2026-01-20
+
+### Bug Fixes
+
+- **action**: Prevent Slack HTTP 400 on empty SUBTITLE in failure notifications by @alexey1312
+
+
 ## [1.0.13] - 2026-01-14
 
 ### Bug Fixes
