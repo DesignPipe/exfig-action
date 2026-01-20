@@ -465,11 +465,21 @@ runs:
           TEMPLATE_NAME="failure.json"
           if [[ "$FAILED_COUNT" -gt 0 ]]; then
             SUBTITLE="$FAILED_COUNT config(s) failed"
+          else
+            SUBTITLE="See workflow logs for details"
           fi
           if [[ -n "$SLACK_MENTION" ]]; then
             TITLE="$TITLE $SLACK_MENTION"
           fi
         fi
+
+        # Escape special characters for sed replacement (|, &, \, /)
+        escape_for_sed() {
+          printf '%s' "$1" | sed 's/[|&\/\]/\\&/g'
+        }
+        TITLE=$(escape_for_sed "$TITLE")
+        SUBTITLE=$(escape_for_sed "$SUBTITLE")
+        CONFIGS_DISPLAY=$(escape_for_sed "$CONFIGS_DISPLAY")
 
         # Resolve template path (user override or default)
         TEMPLATE_FILE=""
@@ -567,13 +577,57 @@ runs:
           PAYLOAD="{\"attachments\":[{\"color\":\"$COLOR\",\"text\":\"$MSG\"}]}"
         fi
 
+        # Validate JSON before sending (if jq available)
+        if command -v jq &>/dev/null; then
+          if ! echo "$PAYLOAD" | jq . &>/dev/null; then
+            echo "::warning::Invalid JSON payload generated, attempting to fix..."
+            # Try to use jq to rebuild a valid payload
+            PAYLOAD=$(jq -n \
+              --arg color "$COLOR" \
+              --arg icon "$ICON" \
+              --arg title "$TITLE" \
+              --arg command "$COMMAND_DISPLAY" \
+              --arg assets "$ASSETS_DISPLAY" \
+              --arg repo "$REPO" \
+              --arg duration "$DURATION" \
+              --arg subtitle "$SUBTITLE" \
+              --arg url "$RUN_URL" \
+              '{
+                attachments: [{
+                  color: $color,
+                  blocks: [
+                    {type: "header", text: {type: "plain_text", text: "\($icon) ExFig: \($title)", emoji: true}},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Command:*\n`\($command)`"},
+                      {type: "mrkdwn", text: "*Assets:*\n\($assets)"}]},
+                    {type: "section", fields: [
+                      {type: "mrkdwn", text: "*Repository:*\n\($repo)"},
+                      {type: "mrkdwn", text: "*Duration:*\n\($duration)"}]},
+                    {type: "context", elements: [{type: "mrkdwn", text: "\($subtitle)"}]},
+                    {type: "actions", elements: [
+                      {type: "button", text: {type: "plain_text", text: "View Run", emoji: true}, url: $url}]}
+                  ]
+                }]
+              }')
+          fi
+        fi
+
         # Send with error handling
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        RESPONSE_FILE="${{ runner.temp }}/slack-response.txt"
+        HTTP_CODE=$(curl -s -o "$RESPONSE_FILE" -w "%{http_code}" \
           -X POST -H 'Content-type: application/json' \
           --data "$PAYLOAD" "$SLACK_WEBHOOK")
 
         if [[ "$HTTP_CODE" != "200" ]]; then
           echo "::warning::Slack notification failed with HTTP $HTTP_CODE"
+          # Log response body for debugging (hide sensitive webhook errors)
+          if [[ -f "$RESPONSE_FILE" ]]; then
+            RESPONSE=$(cat "$RESPONSE_FILE")
+            if [[ "$RESPONSE" != *"invalid_token"* && "$RESPONSE" != *"channel_not_found"* ]]; then
+              echo "::debug::Slack response: $RESPONSE"
+            fi
+          fi
         else
           echo "Slack notification sent successfully"
         fi
+        rm -f "$RESPONSE_FILE" 2>/dev/null || true
