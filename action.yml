@@ -473,9 +473,11 @@ runs:
           fi
         fi
 
-        # Escape special characters for sed replacement (|, &, \, /)
+        # Escape special characters for sed replacement (|, &, /)
+        # Note: backslash is NOT escaped to preserve \n sequences for JSON
+        # Using # as delimiter because / delimiter causes issues with character class
         escape_for_sed() {
-          printf '%s' "$1" | sed 's/[|&\/\]/\\&/g'
+          printf '%s' "$1" | sed 's#[|&/]#\\&#g'
         }
         TITLE=$(escape_for_sed "$TITLE")
         SUBTITLE=$(escape_for_sed "$SUBTITLE")
