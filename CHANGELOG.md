@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.15] - 2026-01-21
+
+### Bug Fixes
+
+- **action**: Preserve newlines in Slack config list by fixing escape_for_sed by @alexey1312
+
+
 ## [1.0.14] - 2026-01-20
 
 ### Bug Fixes
