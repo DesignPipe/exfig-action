@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-01-27
+
+### Features
+
+- **refactor**: Convert action to TypeScript, add ESLint & Jest by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- Update README.md by @alexey1312
+
+- Test covverandge by @alexey1312
+
+
+### Other
+
+- Merge pull request #1 from alexey1312/feature-ts
+
+feat(refactor): convert action to TypeScript, add ESLint & Jest by @alexey1312 in [#1](https://github.com/alexey1312/exfig-action/pull/1)
+
+
+### Refactor
+
+- **agent-docs**: Consolidate and update agent documentation by @alexey1312
+
+
 ## [1.0.16] - 2026-01-27
 
 ### Features
