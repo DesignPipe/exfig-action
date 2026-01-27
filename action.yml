@@ -98,6 +98,12 @@ outputs:
   exported_configs:
     description: 'Number of configs that exported new assets'
     value: ${{ steps.run-exfig.outputs.exported_configs }}
+  error_category:
+    description: 'Error category code (RATE_LIMIT, TIMEOUT, AUTH, etc.)'
+    value: ${{ steps.run-exfig.outputs.error_category }}
+  error_message:
+    description: 'First error message from failed config (truncated to 100 chars)'
+    value: ${{ steps.run-exfig.outputs.error_message }}
 
 runs:
   using: 'composite'
@@ -336,6 +342,34 @@ runs:
         fi
         echo "failed_count=$FAILED_COUNT" >> $GITHUB_OUTPUT
 
+        # Parse first error message from failed configs (format: "✗ config.yaml: Error message")
+        # Strip "✗ " prefix, remove recovery suggestions (→), truncate to 100 chars for Slack
+        RAW_ERROR=$(grep -m1 '^✗' "$OUTPUT_FILE" 2>/dev/null | sed 's/^✗ //' || echo "")
+        ERROR_MESSAGE=$(echo "$RAW_ERROR" | head -1 | cut -c1-100)
+        if [[ ${#RAW_ERROR} -gt 100 ]]; then
+          ERROR_MESSAGE="${ERROR_MESSAGE}..."
+        fi
+        echo "error_message=$ERROR_MESSAGE" >> $GITHUB_OUTPUT
+
+        # Categorize error for quick identification in Slack notifications
+        # Case-insensitive matching with fallback to [ERROR] for unknown types
+        ERROR_CATEGORY=""
+        if [[ -n "$RAW_ERROR" ]]; then
+          RAW_ERROR_LOWER=$(echo "$RAW_ERROR" | tr '[:upper:]' '[:lower:]')
+          case "$RAW_ERROR_LOWER" in
+            *"rate limit"*)       ERROR_CATEGORY="[RATE_LIMIT]" ;;
+            *"timeout"*)          ERROR_CATEGORY="[TIMEOUT]" ;;
+            *"authentication"*|*"token"*) ERROR_CATEGORY="[AUTH]" ;;
+            *"access denied"*|*"forbidden"*) ERROR_CATEGORY="[FORBIDDEN]" ;;
+            *"not found"*|*"404"*) ERROR_CATEGORY="[NOT_FOUND]" ;;
+            *"connection"*|*"internet"*|*"dns"*|*"network"*) ERROR_CATEGORY="[NETWORK]" ;;
+            *"server error"*|*"50"[0-9]*) ERROR_CATEGORY="[SERVER]" ;;
+            *"invalid"*|*"config"*) ERROR_CATEGORY="[CONFIG]" ;;
+            *)                    ERROR_CATEGORY="[ERROR]" ;;
+          esac
+        fi
+        echo "error_category=$ERROR_CATEGORY" >> $GITHUB_OUTPUT
+
         # Override exit code if ExFig reported failures but returned 0
         if [[ "$FAILED_COUNT" -gt 0 && "$EXIT_CODE" -eq 0 ]]; then
           echo "::warning::ExFig reported $FAILED_COUNT failure(s) but returned exit code 0"
@@ -381,6 +415,8 @@ runs:
         SLACK_MENTION: ${{ inputs.slack_mention }}
         SLACK_TEMPLATES: ${{ inputs.slack_templates }}
         ACTION_PATH: ${{ github.action_path }}
+        ERROR_MESSAGE: ${{ steps.run-exfig.outputs.error_message }}
+        ERROR_CATEGORY: ${{ steps.run-exfig.outputs.error_category }}
       run: |
         # Use exit_code from run-exfig (more reliable than job.status)
         EXIT_CODE="${{ steps.run-exfig.outputs.exit_code }}"
@@ -464,12 +500,20 @@ runs:
           TITLE="Export failed"
           TEMPLATE_NAME="failure.json"
           if [[ "$FAILED_COUNT" -gt 0 ]]; then
-            SUBTITLE="$FAILED_COUNT config(s) failed"
+            if [[ -n "$ERROR_MESSAGE" ]]; then
+              # ERROR_CATEGORY is always set when ERROR_MESSAGE exists (fallback = [ERROR])
+              SUBTITLE="$ERROR_CATEGORY $FAILED_COUNT failed: $ERROR_MESSAGE"
+            else
+              # No error message captured — generic fallback
+              SUBTITLE="[ERROR] $FAILED_COUNT config(s) failed"
+            fi
           else
             SUBTITLE="See workflow logs for details"
           fi
+          # Add mention to SUBTITLE (mrkdwn context block) instead of TITLE (plain_text header)
+          # Mentions only work in mrkdwn blocks, not plain_text
           if [[ -n "$SLACK_MENTION" ]]; then
-            TITLE="$TITLE $SLACK_MENTION"
+            SUBTITLE="$SUBTITLE $SLACK_MENTION"
           fi
         fi
 
