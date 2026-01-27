@@ -33,17 +33,18 @@ run = "git config core.hooksPath .githooks 2>/dev/null || true"
 # =============================================================================
 
 [tools]
+node = "22"       # Node.js 22 LTS for development (action runs on node20)
 python = "3.13"
-git-cliff = "2.10.1"
+git-cliff = "2.12.0"
 
 # --- Git Hooks & Formatting ---
-hk = "1.28.0"     # Git hooks manager
-dprint = "0.50.2" # MD formatting (Rust, fast)
+hk = "1.32.0"     # Git hooks manager
+dprint = "0.51.1" # MD formatting (Rust, fast)
 pkl = "0.30.2"    # Configuration language (for hk.pkl)
 
 # --- Linting ---
-actionlint = "1.7.9" # GitHub Actions linting
-yamllint = "1.35.1"  # YAML linting
+actionlint = "1.7.10" # GitHub Actions linting
+yamllint = "1.38.0"  # YAML linting
 
 # =============================================================================
 # Tasks
@@ -53,39 +54,17 @@ yamllint = "1.35.1"  # YAML linting
 description = "Show git hooks status"
 run = "echo 'Git hooks:' && git config core.hooksPath && ls -la .githooks/"
 
-[tasks.pre-commit]
-description = "Run all pre-commit checks"
-run = """
-set -o pipefail
-hk check --all 2>&1 | grep -E '^(✔|✗|hk )' || true
-"""
+[tasks.lint]
+description = "Format, lint and fix all files"
+run = "hk fix --all && hk check --all"
 
-[tasks.format]
-description = "Format all files (Markdown)"
-run = "hk fix --all 2>&1 | grep -E '^(✔|✗|hk )' || true"
+[tasks.test]
+description = "Run unit tests"
+run = "npm test"
 
-[tasks.format-check]
-description = "Check all formatting (CI)"
-run = """
-set -o pipefail
-hk check --all 2>&1 | grep -E '^(✔|✗|hk )'
-"""
-
-[tasks.format-md]
-description = "Format markdown files"
-run = "dprint fmt"
-
-[tasks.format-md-check]
-description = "Check markdown formatting (CI)"
-run = "dprint check"
-
-[tasks.lint-yaml]
-description = "Lint YAML files"
-run = "yamllint -c .yamllint.yaml *.yml *.yaml .github/workflows/*.yml"
-
-[tasks.lint-actions]
-description = "Lint GitHub Actions workflows"
-run = "actionlint"
+[tasks.build]
+description = "Build dist/index.js"
+run = "npm run build"
 
 [tasks.changelog]
 description = "Generate CHANGELOG.md from git history"

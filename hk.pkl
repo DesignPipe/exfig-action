@@ -56,6 +56,33 @@ local jq_checks = new Mapping<String, Step> {
 }
 
 // =============================================================================
+// TypeScript Checks
+// =============================================================================
+
+local ts_checks = new Mapping<String, Step> {
+    ["eslint"] {
+        glob = List("src/**/*.ts")
+        check = "npm run lint"
+        fix = "npm run lint:fix"
+        batch = true
+        hide = true
+    }
+    ["prettier"] {
+        glob = List("src/**/*.ts")
+        check = "npm run format:check"
+        fix = "npm run format"
+        batch = true
+        hide = true
+    }
+    ["tsc"] {
+        glob = List("src/**/*.ts")
+        check = "npx tsc --noEmit"
+        batch = true
+        hide = true
+    }
+}
+
+// =============================================================================
 // Builtin Checks (fast, parallel)
 // =============================================================================
 
@@ -81,6 +108,7 @@ local all_linters = new Mapping<String, Step> {
     ...dprint_checks
     ...yaml_checks
     ...jq_checks
+    ...ts_checks
     ...builtin_checks
 }
 
