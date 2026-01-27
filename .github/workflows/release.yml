@@ -16,14 +16,14 @@ jobs:
     name: Update Changelog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update CHANGELOG.md
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@v4.7.0
         with:
           config: cliff.toml
           args: --output CHANGELOG.md
@@ -43,13 +43,13 @@ jobs:
     needs: update-changelog
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Generate release notes
         id: changelog
-        uses: orhun/git-cliff-action@v4
+        uses: orhun/git-cliff-action@v4.7.0
         with:
           config: cliff.toml
           args: --latest --strip header
@@ -57,7 +57,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           body: ${{ steps.changelog.outputs.content }}
 
@@ -66,7 +66,7 @@ jobs:
     needs: release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Update v1 tag
         run: |

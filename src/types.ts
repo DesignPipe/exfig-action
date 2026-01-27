@@ -1,0 +1,190 @@
+/**
+ * ExFig Action Type Definitions
+ * These types mirror the inputs/outputs defined in action.yml
+ */
+
+/** Valid ExFig commands */
+export type ExFigCommand =
+  | 'colors'
+  | 'icons'
+  | 'images'
+  | 'typography'
+  | 'batch'
+  | 'fetch'
+  | 'download';
+
+/** Supported platforms (no Windows support) */
+export type Platform = 'darwin' | 'linux';
+
+/** Runner OS values from GitHub Actions */
+export type RunnerOS = 'macOS' | 'Linux';
+
+/**
+ * Action inputs matching action.yml inputs
+ */
+export interface ActionInputs {
+  /** Figma Personal Access Token */
+  figmaToken: string;
+  /** ExFig command to run */
+  command: ExFigCommand;
+  /** Path to exfig.yml config file (can be comma-separated for batch) */
+  config: string;
+  /** Filter pattern for assets */
+  filter: string;
+  /** ExFig version to use */
+  version: string;
+  /** Enable caching for incremental exports */
+  cache: boolean;
+  /** Path to cache file */
+  cachePath: string;
+  /** Prefix for cache key */
+  cacheKeyPrefix: string;
+  /** Enable experimental granular caching */
+  granularCache: boolean;
+  /** Figma API rate limit (requests per second) */
+  rateLimit: number;
+  /** Maximum retries for failed API requests */
+  maxRetries: number;
+  /** Output directory for exported assets */
+  outputDir: string;
+  /** Enable verbose logging */
+  verbose: boolean;
+  /** Additional CLI arguments */
+  extraArgs: string;
+  /** Slack Incoming Webhook URL */
+  slackWebhook: string;
+  /** User/group to mention on failure */
+  slackMention: string;
+  /** Path to custom Slack templates directory */
+  slackTemplates: string;
+}
+
+/**
+ * Action outputs matching action.yml outputs
+ */
+export interface ActionOutputs {
+  /** Number of assets exported */
+  assetsExported: number;
+  /** List of changed files (newline-separated) */
+  changedFiles: string;
+  /** Whether cache was restored */
+  cacheHit: boolean;
+  /** ExFig command exit code */
+  exitCode: number;
+  /** Number of failed configs in batch mode */
+  failedCount: number;
+  /** Execution duration in seconds */
+  duration: string;
+  /** Summary of config files processed */
+  configSummary: string;
+  /** Number of configs validated from cache */
+  validatedCount: number;
+  /** Number of configs that exported new assets */
+  exportedConfigs: number;
+  /** Error category code */
+  errorCategory: ErrorCategory | '';
+  /** First error message from failed config */
+  errorMessage: string;
+}
+
+/** Error categories for Slack notifications */
+export type ErrorCategory =
+  | 'RATE_LIMIT'
+  | 'TIMEOUT'
+  | 'AUTH'
+  | 'FORBIDDEN'
+  | 'NOT_FOUND'
+  | 'NETWORK'
+  | 'SERVER'
+  | 'CONFIG'
+  | 'ERROR';
+
+/**
+ * ExFig command execution result
+ */
+export interface ExFigResult {
+  /** Exit code from ExFig CLI */
+  exitCode: number;
+  /** Raw stdout output */
+  stdout: string;
+  /** Raw stderr output */
+  stderr: string;
+  /** Execution duration in seconds */
+  durationSeconds: number;
+}
+
+/**
+ * Parsed metrics from ExFig output
+ */
+export interface ExFigMetrics {
+  /** Total assets exported */
+  assetsExported: number;
+  /** Number of configs validated (cached) */
+  validatedCount: number;
+  /** Number of configs with actual exports */
+  exportedConfigs: number;
+  /** Number of failed configs */
+  failedCount: number;
+  /** First error message */
+  errorMessage: string;
+  /** Categorized error type */
+  errorCategory: ErrorCategory | '';
+}
+
+/**
+ * Binary cache configuration
+ */
+export interface BinaryCache {
+  /** Cache key pattern */
+  key: string;
+  /** Path to cached binary */
+  path: string;
+}
+
+/**
+ * Asset cache configuration
+ */
+export interface AssetCache {
+  /** Primary cache key */
+  key: string;
+  /** Restore keys for fallback */
+  restoreKeys: string[];
+  /** Path to cache file */
+  path: string;
+}
+
+/**
+ * Slack notification payload variables
+ */
+export interface SlackTemplateVars {
+  color: string;
+  icon: string;
+  title: string;
+  subtitle: string;
+  command: string;
+  configs: string;
+  assets: string;
+  duration: string;
+  repo: string;
+  runUrl: string;
+}
+
+/**
+ * GitHub context information
+ */
+export interface GitHubContext {
+  /** Repository name (owner/repo) */
+  repository: string;
+  /** Workflow run ID */
+  runId: string;
+  /** GitHub server URL */
+  serverUrl: string;
+  /** GitHub token */
+  token: string;
+  /** Runner temp directory */
+  runnerTemp: string;
+  /** Runner OS */
+  runnerOs: RunnerOS;
+  /** Action path */
+  actionPath: string;
+}
