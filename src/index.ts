@@ -68,40 +68,6 @@ function getInputs(): ActionInputs {
   };
 }
 
-function isValidCommand(cmd: string): cmd is ExFigCommand {
-  return VALID_COMMANDS.includes(cmd as ExFigCommand);
-}
-
-function getGitHubContext(): GitHubContext {
-  return {
-    repository: process.env.GITHUB_REPOSITORY ?? '',
-    runId: process.env.GITHUB_RUN_ID ?? '',
-    serverUrl: process.env.GITHUB_SERVER_URL ?? 'https://github.com',
-    token: process.env.GITHUB_TOKEN ?? '',
-    runnerTemp: process.env.RUNNER_TEMP ?? os.tmpdir(),
-    runnerOs: (process.env.RUNNER_OS as RunnerOS) ?? 'Linux',
-    actionPath: process.env.GITHUB_ACTION_PATH ?? '',
-  };
-}
-
-// =============================================================================
-// Platform Validation
-// =============================================================================
-
-function validatePlatform(runnerOs: RunnerOS): Platform {
-  const platformMap: Record<RunnerOS, Platform> = {
-    macOS: 'darwin',
-    Linux: 'linux',
-  };
-
-  const platform = platformMap[runnerOs];
-  if (!platform) {
-    throw new Error(`Unsupported platform: ${runnerOs}. Only Linux and macOS are supported.`);
-  }
-
-  return platform;
-}
-
 // =============================================================================
 // Version Resolution
 // =============================================================================
@@ -164,14 +130,6 @@ async function fetchLatestVersion(token: string): Promise<string | null> {
 // =============================================================================
 // Binary Cache & Download
 // =============================================================================
-
-function getBinaryInstallDir(runnerTemp: string): string {
-  return path.join(runnerTemp, 'exfig');
-}
-
-function getBinaryPath(installDir: string): string {
-  return path.join(installDir, EXFIG_BINARY_NAME);
-}
 
 async function cacheBinary(
   platform: Platform,
@@ -305,6 +263,115 @@ async function saveAssetCache(inputs: ActionInputs, runId: string): Promise<void
 // =============================================================================
 // ExFig Command Execution
 // =============================================================================
+
+// =============================================================================
+// Exported for Testing
+// =============================================================================
+
+export function isValidCommand(cmd: string): cmd is ExFigCommand {
+  return VALID_COMMANDS.includes(cmd as ExFigCommand);
+}
+
+export function validatePlatform(runnerOs: string): Platform {
+  const platformMap: Record<string, Platform> = {
+    macOS: 'darwin',
+    Linux: 'linux',
+  };
+
+  const platform = platformMap[runnerOs];
+  if (!platform) {
+    throw new Error(`Unsupported platform: ${runnerOs}. Only Linux and macOS are supported.`);
+  }
+
+  return platform;
+}
+
+export function getBinaryInstallDir(runnerTemp: string): string {
+  return path.join(runnerTemp, 'exfig');
+}
+
+export function getBinaryPath(installDir: string): string {
+  return path.join(installDir, EXFIG_BINARY_NAME);
+}
+
+export function getGitHubContext(): GitHubContext {
+  return {
+    repository: process.env.GITHUB_REPOSITORY ?? '',
+    runId: process.env.GITHUB_RUN_ID ?? '',
+    serverUrl: process.env.GITHUB_SERVER_URL ?? 'https://github.com',
+    token: process.env.GITHUB_TOKEN ?? '',
+    runnerTemp: process.env.RUNNER_TEMP ?? os.tmpdir(),
+    runnerOs: (process.env.RUNNER_OS as RunnerOS) ?? 'Linux',
+    actionPath: process.env.GITHUB_ACTION_PATH ?? '',
+  };
+}
+
+export function buildSlackPayload(
+  vars: SlackTemplateVars,
+  templatePath?: string
+): Record<string, unknown> {
+  // Try to load template
+  if (templatePath && fs.existsSync(templatePath)) {
+    const template = fs.readFileSync(templatePath, 'utf-8');
+    const payload = template
+      .replace(/\{\{COLOR\}\}/g, vars.color)
+      .replace(/\{\{ICON\}\}/g, vars.icon)
+      .replace(/\{\{TITLE\}\}/g, vars.title)
+      .replace(/\{\{COMMAND\}\}/g, vars.command)
+      .replace(/\{\{CONFIGS\}\}/g, vars.configs)
+      .replace(/\{\{ASSETS\}\}/g, vars.assets)
+      .replace(/\{\{DURATION\}\}/g, vars.duration)
+      .replace(/\{\{REPO\}\}/g, vars.repo)
+      .replace(/\{\{SUBTITLE\}\}/g, vars.subtitle)
+      .replace(/\{\{RUN_URL\}\}/g, vars.runUrl);
+
+    return JSON.parse(payload) as Record<string, unknown>;
+  }
+
+  // Build inline payload
+  const blocks: Record<string, unknown>[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `${vars.icon} ExFig: ${vars.title}`, emoji: true },
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*Command:*\n\`${vars.command}\`${vars.configs}` },
+        { type: 'mrkdwn', text: `*Assets:*\n${vars.assets}` },
+      ],
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `*Repository:*\n${vars.repo}` },
+        { type: 'mrkdwn', text: `*Duration:*\n${vars.duration}` },
+      ],
+    },
+  ];
+
+  if (vars.subtitle) {
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: vars.subtitle }],
+    });
+  }
+
+  blocks.push({
+    type: 'actions',
+    elements: [
+      {
+        type: 'button',
+        text: { type: 'plain_text', text: 'View Run', emoji: true },
+        url: vars.runUrl,
+      },
+    ],
+  });
+
+  return {
+    attachments: [{ color: vars.color, blocks }],
+  };
+}
 
 export function buildCommand(inputs: ActionInputs): { args: string[]; configPaths: string[] } {
   const args: string[] = [inputs.command];
@@ -523,73 +590,6 @@ export function formatSlackMention(mention: string): string {
   }
 
   return mention;
-}
-
-function buildSlackPayload(
-  vars: SlackTemplateVars,
-  templatePath?: string
-): Record<string, unknown> {
-  // Try to load template
-  if (templatePath && fs.existsSync(templatePath)) {
-    const template = fs.readFileSync(templatePath, 'utf-8');
-    const payload = template
-      .replace(/\{\{COLOR\}\}/g, vars.color)
-      .replace(/\{\{ICON\}\}/g, vars.icon)
-      .replace(/\{\{TITLE\}\}/g, vars.title)
-      .replace(/\{\{COMMAND\}\}/g, vars.command)
-      .replace(/\{\{CONFIGS\}\}/g, vars.configs)
-      .replace(/\{\{ASSETS\}\}/g, vars.assets)
-      .replace(/\{\{DURATION\}\}/g, vars.duration)
-      .replace(/\{\{REPO\}\}/g, vars.repo)
-      .replace(/\{\{SUBTITLE\}\}/g, vars.subtitle)
-      .replace(/\{\{RUN_URL\}\}/g, vars.runUrl);
-
-    return JSON.parse(payload) as Record<string, unknown>;
-  }
-
-  // Build inline payload
-  const blocks: Record<string, unknown>[] = [
-    {
-      type: 'header',
-      text: { type: 'plain_text', text: `${vars.icon} ExFig: ${vars.title}`, emoji: true },
-    },
-    {
-      type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*Command:*\n\`${vars.command}\`${vars.configs}` },
-        { type: 'mrkdwn', text: `*Assets:*\n${vars.assets}` },
-      ],
-    },
-    {
-      type: 'section',
-      fields: [
-        { type: 'mrkdwn', text: `*Repository:*\n${vars.repo}` },
-        { type: 'mrkdwn', text: `*Duration:*\n${vars.duration}` },
-      ],
-    },
-  ];
-
-  if (vars.subtitle) {
-    blocks.push({
-      type: 'context',
-      elements: [{ type: 'mrkdwn', text: vars.subtitle }],
-    });
-  }
-
-  blocks.push({
-    type: 'actions',
-    elements: [
-      {
-        type: 'button',
-        text: { type: 'plain_text', text: 'View Run', emoji: true },
-        url: vars.runUrl,
-      },
-    ],
-  });
-
-  return {
-    attachments: [{ color: vars.color, blocks }],
-  };
 }
 
 async function sendSlackNotification(

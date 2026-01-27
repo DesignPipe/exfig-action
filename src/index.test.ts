@@ -1,6 +1,18 @@
-import { parseExFigOutput, categorizeError, formatSlackMention, buildCommand } from './index';
-import type { ActionInputs } from './types';
+import {
+  parseExFigOutput,
+  categorizeError,
+  formatSlackMention,
+  buildCommand,
+  isValidCommand,
+  validatePlatform,
+  getBinaryInstallDir,
+  getBinaryPath,
+  getGitHubContext,
+  buildSlackPayload,
+} from './index';
+import type { ActionInputs, SlackTemplateVars } from './types';
 import * as fs from 'fs';
+import * as os from 'os';
 
 // Mock fs.existsSync for buildCommand tests
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
@@ -269,5 +281,180 @@ describe('buildCommand', () => {
         config: 'missing1.yml, missing2.yml',
       })
     ).toThrow('No valid config files found for batch command');
+  });
+});
+
+describe('isValidCommand', () => {
+  it('should return true for valid commands', () => {
+    expect(isValidCommand('colors')).toBe(true);
+    expect(isValidCommand('icons')).toBe(true);
+    expect(isValidCommand('images')).toBe(true);
+    expect(isValidCommand('typography')).toBe(true);
+    expect(isValidCommand('batch')).toBe(true);
+    expect(isValidCommand('fetch')).toBe(true);
+    expect(isValidCommand('download')).toBe(true);
+  });
+
+  it('should return false for invalid commands', () => {
+    expect(isValidCommand('invalid')).toBe(false);
+    expect(isValidCommand('')).toBe(false);
+    expect(isValidCommand('COLORS')).toBe(false);
+  });
+});
+
+describe('validatePlatform', () => {
+  it('should return darwin for macOS', () => {
+    expect(validatePlatform('macOS')).toBe('darwin');
+  });
+
+  it('should return linux for Linux', () => {
+    expect(validatePlatform('Linux')).toBe('linux');
+  });
+
+  it('should throw error for unsupported platform', () => {
+    expect(() => validatePlatform('Windows')).toThrow(
+      'Unsupported platform: Windows. Only Linux and macOS are supported.'
+    );
+  });
+
+  it('should throw error for empty string', () => {
+    expect(() => validatePlatform('')).toThrow('Unsupported platform');
+  });
+});
+
+describe('getBinaryInstallDir', () => {
+  it('should return correct path with exfig subdirectory', () => {
+    expect(getBinaryInstallDir('/tmp/runner')).toBe('/tmp/runner/exfig');
+    expect(getBinaryInstallDir('/home/user/.cache')).toBe('/home/user/.cache/exfig');
+  });
+});
+
+describe('getBinaryPath', () => {
+  it('should return correct binary path with ExFig name', () => {
+    expect(getBinaryPath('/tmp/runner/exfig')).toBe('/tmp/runner/exfig/ExFig');
+    expect(getBinaryPath('/usr/local/bin')).toBe('/usr/local/bin/ExFig');
+  });
+});
+
+describe('getGitHubContext', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+  });
+
+  it('should return context from environment variables', () => {
+    process.env.GITHUB_REPOSITORY = 'owner/repo';
+    process.env.GITHUB_RUN_ID = '12345';
+    process.env.GITHUB_SERVER_URL = 'https://github.example.com';
+    process.env.GITHUB_TOKEN = 'test-token';
+    process.env.RUNNER_TEMP = '/tmp/runner';
+    process.env.RUNNER_OS = 'Linux';
+    process.env.GITHUB_ACTION_PATH = '/path/to/action';
+
+    const context = getGitHubContext();
+
+    expect(context.repository).toBe('owner/repo');
+    expect(context.runId).toBe('12345');
+    expect(context.serverUrl).toBe('https://github.example.com');
+    expect(context.token).toBe('test-token');
+    expect(context.runnerTemp).toBe('/tmp/runner');
+    expect(context.runnerOs).toBe('Linux');
+    expect(context.actionPath).toBe('/path/to/action');
+  });
+
+  it('should use defaults for missing environment variables', () => {
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.GITHUB_RUN_ID;
+    delete process.env.GITHUB_SERVER_URL;
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.RUNNER_TEMP;
+    delete process.env.RUNNER_OS;
+    delete process.env.GITHUB_ACTION_PATH;
+
+    const context = getGitHubContext();
+
+    expect(context.repository).toBe('');
+    expect(context.runId).toBe('');
+    expect(context.serverUrl).toBe('https://github.com');
+    expect(context.token).toBe('');
+    expect(context.runnerTemp).toBe(os.tmpdir());
+    expect(context.runnerOs).toBe('Linux');
+    expect(context.actionPath).toBe('');
+  });
+});
+
+describe('buildSlackPayload', () => {
+  const baseVars: SlackTemplateVars = {
+    color: '#36a64f',
+    icon: '✅',
+    title: 'Export completed',
+    subtitle: '',
+    command: 'colors',
+    configs: '',
+    assets: '42 exported',
+    duration: '5s',
+    repo: 'owner/repo',
+    runUrl: 'https://github.com/owner/repo/actions/runs/123',
+  };
+
+  it('should build inline payload without template', () => {
+    const payload = buildSlackPayload(baseVars);
+
+    expect(payload).toHaveProperty('attachments');
+    const attachments = payload.attachments as Array<{ color: string; blocks: unknown[] }>;
+    expect(attachments).toHaveLength(1);
+    expect(attachments[0].color).toBe('#36a64f');
+    expect(attachments[0].blocks).toHaveLength(4); // header, section x2, actions
+  });
+
+  it('should include context block when subtitle is provided', () => {
+    const varsWithSubtitle = { ...baseVars, subtitle: 'Some context info' };
+    const payload = buildSlackPayload(varsWithSubtitle);
+
+    const attachments = payload.attachments as Array<{ blocks: unknown[] }>;
+    expect(attachments[0].blocks).toHaveLength(5); // header, section x2, context, actions
+  });
+
+  it('should include configs in command section', () => {
+    const varsWithConfigs = { ...baseVars, configs: '\n• config1.yml\n• config2.yml' };
+    const payload = buildSlackPayload(varsWithConfigs);
+
+    const attachments = payload.attachments as Array<{
+      blocks: Array<{ fields?: Array<{ text: string }> }>;
+    }>;
+    const sectionBlock = attachments[0].blocks[1];
+    expect(sectionBlock.fields?.[0].text).toContain('config1.yml');
+  });
+
+  it('should replace all template variables', () => {
+    // Test all variable replacements in inline payload
+    const fullVars: SlackTemplateVars = {
+      color: '#dc3545',
+      icon: '❌',
+      title: 'Export failed',
+      subtitle: 'Error: Rate limit exceeded',
+      command: 'batch',
+      configs: '\n• colors.yml\n• icons.yml',
+      assets: '0 exported',
+      duration: '120s',
+      repo: 'test/project',
+      runUrl: 'https://github.com/test/project/actions/runs/999',
+    };
+
+    const payload = buildSlackPayload(fullVars);
+
+    const attachments = payload.attachments as Array<{ color: string; blocks: unknown[] }>;
+    expect(attachments[0].color).toBe('#dc3545');
+
+    // Check header contains icon and title
+    const header = attachments[0].blocks[0] as { text: { text: string } };
+    expect(header.text.text).toContain('❌');
+    expect(header.text.text).toContain('Export failed');
   });
 });
