@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.16] - 2026-01-27
+
+### Features
+
+- Add error handling and reporting for ExFig action by @alexey1312
+
+- Add ExFig output parsing tests by @alexey1312
+
+
 ## [1.0.15] - 2026-01-21
 
 ### Bug Fixes
