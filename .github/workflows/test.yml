@@ -50,15 +50,17 @@ jobs:
 
       - name: Resolve latest version
         id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          RESPONSE=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/alexey1312/exfig/releases/latest")
           # Use jq if available, fallback to grep+sed
           if command -v jq &>/dev/null; then
             VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
           else
             VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
           fi
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
             echo "✗ Failed to resolve latest version"
             exit 1
           fi
@@ -164,15 +166,17 @@ jobs:
 
       - name: Resolve version
         id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          RESPONSE=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/alexey1312/exfig/releases/latest")
           # Use jq if available, fallback to grep+sed
           if command -v jq &>/dev/null; then
             VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
           else
             VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
           fi
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
             echo "✗ Failed to resolve latest version"
             exit 1
           fi
@@ -223,15 +227,17 @@ jobs:
 
       - name: Resolve version
         id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          RESPONSE=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/alexey1312/exfig/releases/latest")
           # Use jq if available, fallback to grep+sed
           if command -v jq &>/dev/null; then
             VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
           else
             VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
           fi
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
             echo "✗ Failed to resolve latest version"
             exit 1
           fi
@@ -279,3 +285,12 @@ jobs:
         run: |
           "${{ runner.temp }}/exfig/ExFig" --version
           echo "✓ ExFig binary executes successfully"
+
+  test-output-parsing:
+    name: Test output parsing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run parsing tests
+        run: ./scripts/test-parsing.sh

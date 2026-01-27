@@ -94,3 +94,7 @@ run = "git-cliff -o CHANGELOG.md"
 [tasks."changelog:unreleased"]
 description = "Preview unreleased changes"
 run = "git-cliff --unreleased"
+
+[tasks.test-parsing]
+description = "Test ExFig output parsing logic"
+run = "./scripts/test-parsing.sh"

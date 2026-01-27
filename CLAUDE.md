@@ -81,6 +81,7 @@ Use Conventional Commits: `<type>(<scope>): <description>`
 - Quote all variable expansions: `"${VAR}"`
 - Use lowercase for local variables, UPPERCASE for environment variables
 - Prefer POSIX-compatible constructs
+- With `set -e`: use `((var++)) || true` for arithmetic — `((0))` returns exit code 1
 
 ## Caching
 

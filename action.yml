@@ -132,16 +132,18 @@ runs:
     - name: Resolve ExFig version
       id: resolve-version
       shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
         if [[ "${{ inputs.version }}" == "latest" ]]; then
-          RESPONSE=$(curl -sL "https://api.github.com/repos/alexey1312/exfig/releases/latest")
+          RESPONSE=$(curl -sL -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/alexey1312/exfig/releases/latest")
           # Use jq if available, fallback to grep+sed for environments without jq
           if command -v jq &>/dev/null; then
             VERSION=$(echo "$RESPONSE" | jq -r '.tag_name' 2>/dev/null || echo "")
           else
             VERSION=$(echo "$RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "")
           fi
-          if [[ -z "$VERSION" ]]; then
+          if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
             echo "::error::Failed to fetch latest ExFig version. This may happen due to GitHub API rate limiting."
             exit 1
           fi
