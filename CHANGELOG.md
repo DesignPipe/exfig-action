@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-01-29
+
+### Features
+
+- **slack**: Add version and platform info to notifications by @alexey1312
+
+
 ## [1.1.1] - 2026-01-27
 
 ### Bug Fixes
