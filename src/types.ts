@@ -163,10 +163,14 @@ export interface SlackTemplateVars {
   subtitle: string;
   command: string;
   configs: string;
+  configCount: number;
+  validatedCount: number;
   assets: string;
   duration: string;
   repo: string;
   runUrl: string;
+  version: string;
+  platform: string;
 }
 
 /**

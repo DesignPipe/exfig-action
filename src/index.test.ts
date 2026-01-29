@@ -397,10 +397,14 @@ describe('buildSlackPayload', () => {
     subtitle: '',
     command: 'colors',
     configs: '',
+    configCount: 0,
+    validatedCount: 0,
     assets: '42 exported',
     duration: '5s',
     repo: 'owner/repo',
     runUrl: 'https://github.com/owner/repo/actions/runs/123',
+    version: 'v1.2.3',
+    platform: 'macOS',
   };
 
   it('should build inline payload without template', () => {
@@ -410,7 +414,7 @@ describe('buildSlackPayload', () => {
     const attachments = payload.attachments as Array<{ color: string; blocks: unknown[] }>;
     expect(attachments).toHaveLength(1);
     expect(attachments[0].color).toBe('#36a64f');
-    expect(attachments[0].blocks).toHaveLength(4); // header, section x2, actions
+    expect(attachments[0].blocks).toHaveLength(5); // header, section x2, context (version), actions
   });
 
   it('should include context block when subtitle is provided', () => {
@@ -418,7 +422,7 @@ describe('buildSlackPayload', () => {
     const payload = buildSlackPayload(varsWithSubtitle);
 
     const attachments = payload.attachments as Array<{ blocks: unknown[] }>;
-    expect(attachments[0].blocks).toHaveLength(5); // header, section x2, context, actions
+    expect(attachments[0].blocks).toHaveLength(6); // header, section x2, context (version), context (subtitle), actions
   });
 
   it('should include configs in command section', () => {
@@ -441,10 +445,14 @@ describe('buildSlackPayload', () => {
       subtitle: 'Error: Rate limit exceeded',
       command: 'batch',
       configs: '\n• colors.yml\n• icons.yml',
+      configCount: 2,
+      validatedCount: 0,
       assets: '0 exported',
       duration: '120s',
       repo: 'test/project',
       runUrl: 'https://github.com/test/project/actions/runs/999',
+      version: 'v2.0.0',
+      platform: 'Linux',
     };
 
     const payload = buildSlackPayload(fullVars);

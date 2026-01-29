@@ -323,12 +323,23 @@ export function buildSlackPayload(
       .replace(/\{\{DURATION\}\}/g, vars.duration)
       .replace(/\{\{REPO\}\}/g, vars.repo)
       .replace(/\{\{SUBTITLE\}\}/g, vars.subtitle)
-      .replace(/\{\{RUN_URL\}\}/g, vars.runUrl);
+      .replace(/\{\{RUN_URL\}\}/g, vars.runUrl)
+      .replace(/\{\{VERSION\}\}/g, vars.version)
+      .replace(/\{\{PLATFORM\}\}/g, vars.platform)
+      .replace(/\{\{CONFIG_COUNT\}\}/g, vars.configCount.toString())
+      .replace(/\{\{VALIDATED_COUNT\}\}/g, vars.validatedCount.toString());
 
     return JSON.parse(payload) as Record<string, unknown>;
   }
 
   // Build inline payload
+  let commandDisplay = `\`${vars.command}\``;
+  if (vars.configCount > 0) {
+    commandDisplay = `\`${vars.command}\` - ${vars.configCount}`;
+  } else if (vars.validatedCount > 0) {
+    commandDisplay = `\`${vars.command}\` - ${vars.validatedCount} (cached)`;
+  }
+
   const blocks: Record<string, unknown>[] = [
     {
       type: 'header',
@@ -337,7 +348,7 @@ export function buildSlackPayload(
     {
       type: 'section',
       fields: [
-        { type: 'mrkdwn', text: `*Command:*\n\`${vars.command}\`${vars.configs}` },
+        { type: 'mrkdwn', text: `*Command:*\n${commandDisplay}${vars.configs}` },
         { type: 'mrkdwn', text: `*Assets:*\n${vars.assets}` },
       ],
     },
@@ -347,6 +358,10 @@ export function buildSlackPayload(
         { type: 'mrkdwn', text: `*Repository:*\n${vars.repo}` },
         { type: 'mrkdwn', text: `*Duration:*\n${vars.duration}` },
       ],
+    },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `${vars.platform} • ExFig \`${vars.version}\`` }],
     },
   ];
 
@@ -651,6 +666,8 @@ async function run(): Promise<void> {
 
   let inputs: ActionInputs | null = null;
   let context: GitHubContext | null = null;
+  let version = 'unknown';
+  let platform: Platform = 'linux';
 
   try {
     // Step 1: Parse and validate inputs
@@ -658,11 +675,11 @@ async function run(): Promise<void> {
     context = getGitHubContext();
 
     // Step 2: Validate platform
-    const platform = validatePlatform(context.runnerOs);
+    platform = validatePlatform(context.runnerOs);
     core.info(`Platform: ${context.runnerOs} (${platform})`);
 
     // Step 3: Resolve version
-    const version = await resolveVersion(inputs.version, context.token);
+    version = await resolveVersion(inputs.version, context.token);
 
     // Step 4: Cache/download binary
     const installDir = getBinaryInstallDir(context.runnerTemp);
@@ -718,7 +735,7 @@ async function run(): Promise<void> {
 
     // Step 9: Send Slack notification if configured
     if (inputs.slackWebhook) {
-      await handleSlackNotification(inputs, outputs as ActionOutputs, context);
+      await handleSlackNotification(inputs, outputs as ActionOutputs, context, version, platform);
     }
 
     // Fail if ExFig failed
@@ -739,7 +756,7 @@ async function run(): Promise<void> {
 
       // Send Slack notification on failure
       if (inputs.slackWebhook) {
-        await handleSlackNotification(inputs, outputs as ActionOutputs, context);
+        await handleSlackNotification(inputs, outputs as ActionOutputs, context, version, platform);
       }
     }
 
@@ -764,7 +781,9 @@ function setOutputs(outputs: ActionOutputs): void {
 async function handleSlackNotification(
   inputs: ActionInputs,
   outputs: ActionOutputs,
-  context: GitHubContext
+  context: GitHubContext,
+  version: string,
+  platform: Platform
 ): Promise<void> {
   const runUrl = `${context.serverUrl}/${context.repository}/actions/runs/${context.runId}`;
   const mention = formatSlackMention(inputs.slackMention);
@@ -856,10 +875,14 @@ async function handleSlackNotification(
       subtitle,
       command: inputs.command,
       configs: configsDisplay,
+      configCount: outputs.exportedConfigs,
+      validatedCount: outputs.validatedCount,
       assets: assetsDisplay,
       duration: outputs.duration,
       repo: context.repository,
       runUrl,
+      version,
+      platform: platform === 'darwin' ? 'macOS' : 'Linux',
     },
     templatePath
   );
