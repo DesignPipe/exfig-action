@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.1] - 2026-02-02
+
+### Features
+
+- Improve crash detection and diagnostics by @alexey1312
+
+
+### Miscellaneous Tasks
+
+- Mise fmt by @alexey1312
+
+
 ## [1.2.0] - 2026-01-29
 
 ### Features
