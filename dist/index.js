@@ -40378,6 +40378,7 @@ exports.buildSlackPayload = buildSlackPayload;
 exports.buildCommand = buildCommand;
 exports.parseExFigOutput = parseExFigOutput;
 exports.categorizeError = categorizeError;
+exports.detectCrash = detectCrash;
 exports.formatSlackMention = formatSlackMention;
 const core = __importStar(__nccwpck_require__(7484));
 const cache = __importStar(__nccwpck_require__(5116));
@@ -40838,6 +40839,40 @@ function categorizeError(error) {
         return 'CONFIG';
     return 'ERROR';
 }
+/** Known crash patterns in Swift runtime / ExFig output */
+const CRASH_PATTERNS = [
+    'freed pointer was not the last allocation',
+    'malloc:',
+    'double free',
+    'heap corruption',
+    'segmentation fault',
+    'bus error',
+    'abort trap',
+    'fatal error:',
+    'Swift runtime failure',
+    'EXC_BAD_ACCESS',
+    'EXC_CRASH',
+    'SIGABRT',
+    'SIGSEGV',
+    'SIGBUS',
+];
+/**
+ * Detect if output indicates a crash
+ * @returns crash message if detected, empty string otherwise
+ */
+function detectCrash(stdout, stderr) {
+    const combined = `${stdout}\n${stderr}`.toLowerCase();
+    for (const pattern of CRASH_PATTERNS) {
+        if (combined.includes(pattern.toLowerCase())) {
+            // Find the actual line containing the crash pattern
+            const lines = `${stdout}\n${stderr}`.split('\n');
+            const crashLine = lines.find(line => line.toLowerCase().includes(pattern.toLowerCase()));
+            const trimmed = crashLine?.trim();
+            return trimmed && trimmed.length > 0 ? trimmed : pattern;
+        }
+    }
+    return '';
+}
 async function getChangedFiles() {
     try {
         let output = '';
@@ -40968,6 +41003,17 @@ async function run() {
         outputs.failedCount = metrics.failedCount;
         outputs.errorMessage = metrics.errorMessage;
         outputs.errorCategory = metrics.errorCategory;
+        // Detect crash (process killed by signal)
+        const crashMessage = detectCrash(result.stdout, result.stderr);
+        const isCrash = result.exitCode === null || crashMessage !== '';
+        if (isCrash) {
+            core.error('ExFig process crashed (killed by signal)');
+            if (crashMessage) {
+                core.error(`Crash indicator: ${crashMessage}`);
+            }
+            outputs.errorCategory = 'CRASH';
+            outputs.errorMessage = crashMessage || 'Process killed by signal';
+        }
         // Override exit code if failures reported but exit was 0
         let exitCode = result.exitCode;
         if (metrics.failedCount > 0 && exitCode === 0) {
@@ -40985,8 +41031,14 @@ async function run() {
         if (inputs.slackWebhook) {
             await handleSlackNotification(inputs, outputs, context, version, platform);
         }
-        // Fail if ExFig failed
-        if (exitCode !== 0) {
+        // Fail if ExFig failed or crashed
+        if (isCrash) {
+            const hint = crashMessage.includes('freed pointer')
+                ? ' Try reducing parallelism or disabling --experimental-granular-cache.'
+                : '';
+            core.setFailed(`ExFig crashed (signal termination).${hint}`);
+        }
+        else if (exitCode !== 0) {
             core.setFailed(`ExFig command failed with exit code ${exitCode}`);
         }
     }
@@ -41070,9 +41122,20 @@ async function handleSlackNotification(inputs, outputs, context, version, platfo
     else {
         color = '#dc3545';
         icon = '\u274C'; // X
-        title = 'Export failed';
         templateName = 'failure.json';
-        if (outputs.failedCount > 0) {
+        // Handle crash (exit code null or CRASH category)
+        if (outputs.exitCode === null || outputs.errorCategory === 'CRASH') {
+            title = 'ExFig crashed';
+            icon = '\uD83D\uDCA5'; // explosion emoji
+            if (outputs.errorMessage) {
+                subtitle = `[CRASH] ${outputs.errorMessage}`;
+            }
+            else {
+                subtitle = '[CRASH] Process killed by signal - check workflow logs';
+            }
+        }
+        else if (outputs.failedCount > 0) {
+            title = 'Export failed';
             if (outputs.errorMessage) {
                 subtitle = `[${outputs.errorCategory}] ${outputs.failedCount} failed: ${outputs.errorMessage}`;
             }
@@ -41081,6 +41144,7 @@ async function handleSlackNotification(inputs, outputs, context, version, platfo
             }
         }
         else {
+            title = 'Export failed';
             subtitle = 'See workflow logs for details';
         }
         if (mention) {

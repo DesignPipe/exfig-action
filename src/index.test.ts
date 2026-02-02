@@ -1,6 +1,7 @@
 import {
   parseExFigOutput,
   categorizeError,
+  detectCrash,
   formatSlackMention,
   buildCommand,
   isValidCommand,
@@ -147,6 +148,50 @@ describe('categorizeError', () => {
   it('should fallback to ERROR for unknown errors', () => {
     expect(categorizeError('Something went wrong')).toBe('ERROR');
     expect(categorizeError('Unknown issue')).toBe('ERROR');
+  });
+});
+
+describe('detectCrash', () => {
+  it('should detect Swift memory allocation crash', () => {
+    const stderr = 'freed pointer was not the last allocation::debug::Cache service version: v2';
+    expect(detectCrash('', stderr)).toContain('freed pointer');
+  });
+
+  it('should detect malloc errors', () => {
+    const stderr = 'malloc: *** error for object 0x123: pointer being freed was not allocated';
+    expect(detectCrash('', stderr)).toContain('malloc');
+  });
+
+  it('should detect SIGABRT', () => {
+    const stdout = 'Process terminated with SIGABRT';
+    expect(detectCrash(stdout, '')).toContain('SIGABRT');
+  });
+
+  it('should detect SIGSEGV', () => {
+    const stderr = 'SIGSEGV: Segmentation fault';
+    expect(detectCrash('', stderr)).toContain('SIGSEGV');
+  });
+
+  it('should detect fatal error', () => {
+    const stderr = 'fatal error: unexpectedly found nil while unwrapping';
+    expect(detectCrash('', stderr)).toContain('fatal error');
+  });
+
+  it('should be case-insensitive', () => {
+    const stderr = 'FREED POINTER WAS NOT THE LAST ALLOCATION';
+    expect(detectCrash('', stderr)).toContain('FREED POINTER');
+  });
+
+  it('should return empty string for normal output', () => {
+    const stdout = '✓ config.yaml - 10 colors exported';
+    const stderr = '';
+    expect(detectCrash(stdout, stderr)).toBe('');
+  });
+
+  it('should check both stdout and stderr', () => {
+    const stdout = 'Processing...';
+    const stderr = 'double free detected';
+    expect(detectCrash(stdout, stderr)).toContain('double free');
   });
 });
 

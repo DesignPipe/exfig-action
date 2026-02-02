@@ -558,6 +558,44 @@ export function categorizeError(error: string): ErrorCategory {
   return 'ERROR';
 }
 
+/** Known crash patterns in Swift runtime / ExFig output */
+const CRASH_PATTERNS = [
+  'freed pointer was not the last allocation',
+  'malloc:',
+  'double free',
+  'heap corruption',
+  'segmentation fault',
+  'bus error',
+  'abort trap',
+  'fatal error:',
+  'Swift runtime failure',
+  'EXC_BAD_ACCESS',
+  'EXC_CRASH',
+  'SIGABRT',
+  'SIGSEGV',
+  'SIGBUS',
+];
+
+/**
+ * Detect if output indicates a crash
+ * @returns crash message if detected, empty string otherwise
+ */
+export function detectCrash(stdout: string, stderr: string): string {
+  const combined = `${stdout}\n${stderr}`.toLowerCase();
+
+  for (const pattern of CRASH_PATTERNS) {
+    if (combined.includes(pattern.toLowerCase())) {
+      // Find the actual line containing the crash pattern
+      const lines = `${stdout}\n${stderr}`.split('\n');
+      const crashLine = lines.find(line => line.toLowerCase().includes(pattern.toLowerCase()));
+      const trimmed = crashLine?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : pattern;
+    }
+  }
+
+  return '';
+}
+
 async function getChangedFiles(): Promise<string> {
   try {
     let output = '';
@@ -716,6 +754,19 @@ async function run(): Promise<void> {
     outputs.errorMessage = metrics.errorMessage;
     outputs.errorCategory = metrics.errorCategory;
 
+    // Detect crash (process killed by signal)
+    const crashMessage = detectCrash(result.stdout, result.stderr);
+    const isCrash = result.exitCode === null || crashMessage !== '';
+
+    if (isCrash) {
+      core.error('ExFig process crashed (killed by signal)');
+      if (crashMessage) {
+        core.error(`Crash indicator: ${crashMessage}`);
+      }
+      outputs.errorCategory = 'CRASH';
+      outputs.errorMessage = crashMessage || 'Process killed by signal';
+    }
+
     // Override exit code if failures reported but exit was 0
     let exitCode = result.exitCode;
     if (metrics.failedCount > 0 && exitCode === 0) {
@@ -738,8 +789,13 @@ async function run(): Promise<void> {
       await handleSlackNotification(inputs, outputs as ActionOutputs, context, version, platform);
     }
 
-    // Fail if ExFig failed
-    if (exitCode !== 0) {
+    // Fail if ExFig failed or crashed
+    if (isCrash) {
+      const hint = crashMessage.includes('freed pointer')
+        ? ' Try reducing parallelism or disabling --experimental-granular-cache.'
+        : '';
+      core.setFailed(`ExFig crashed (signal termination).${hint}`);
+    } else if (exitCode !== 0) {
       core.setFailed(`ExFig command failed with exit code ${exitCode}`);
     }
   } catch (error) {
@@ -834,16 +890,26 @@ async function handleSlackNotification(
   } else {
     color = '#dc3545';
     icon = '\u274C'; // X
-    title = 'Export failed';
     templateName = 'failure.json';
 
-    if (outputs.failedCount > 0) {
+    // Handle crash (exit code null or CRASH category)
+    if (outputs.exitCode === null || outputs.errorCategory === 'CRASH') {
+      title = 'ExFig crashed';
+      icon = '\uD83D\uDCA5'; // explosion emoji
+      if (outputs.errorMessage) {
+        subtitle = `[CRASH] ${outputs.errorMessage}`;
+      } else {
+        subtitle = '[CRASH] Process killed by signal - check workflow logs';
+      }
+    } else if (outputs.failedCount > 0) {
+      title = 'Export failed';
       if (outputs.errorMessage) {
         subtitle = `[${outputs.errorCategory}] ${outputs.failedCount} failed: ${outputs.errorMessage}`;
       } else {
         subtitle = `[ERROR] ${outputs.failedCount} config(s) failed`;
       }
     } else {
+      title = 'Export failed';
       subtitle = 'See workflow logs for details';
     }
 

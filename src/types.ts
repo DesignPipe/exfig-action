@@ -69,8 +69,8 @@ export interface ActionOutputs {
   changedFiles: string;
   /** Whether cache was restored */
   cacheHit: boolean;
-  /** ExFig command exit code */
-  exitCode: number;
+  /** ExFig command exit code (null if process was killed by signal) */
+  exitCode: number | null;
   /** Number of failed configs in batch mode */
   failedCount: number;
   /** Execution duration in seconds */
@@ -97,14 +97,15 @@ export type ErrorCategory =
   | 'NETWORK'
   | 'SERVER'
   | 'CONFIG'
+  | 'CRASH'
   | 'ERROR';
 
 /**
  * ExFig command execution result
  */
 export interface ExFigResult {
-  /** Exit code from ExFig CLI */
-  exitCode: number;
+  /** Exit code from ExFig CLI (null if process was killed by signal) */
+  exitCode: number | null;
   /** Raw stdout output */
   stdout: string;
   /** Raw stderr output */
