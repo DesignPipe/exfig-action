@@ -33,7 +33,7 @@ run = "git config core.hooksPath .githooks 2>/dev/null || true"
 # =============================================================================
 
 [tools]
-node = "22"       # Node.js 22 LTS for development (action runs on node20)
+node = "22"          # Node.js 22 LTS for development (action runs on node20)
 python = "3.13"
 git-cliff = "2.12.0"
 
@@ -44,7 +44,7 @@ pkl = "0.30.2"    # Configuration language (for hk.pkl)
 
 # --- Linting ---
 actionlint = "1.7.10" # GitHub Actions linting
-yamllint = "1.38.0"  # YAML linting
+yamllint = "1.38.0"   # YAML linting
 
 # =============================================================================
 # Tasks
