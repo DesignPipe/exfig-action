@@ -20,7 +20,7 @@ Common issues and solutions when using ExFig Action.
 
 **Solution:**
 
-1. Verify the file key in your `exfig.yml` configuration
+1. Verify the file key in your `exfig.pkl` configuration
 2. Ensure your Figma token has access to the file
 3. Check if the file has been moved or deleted
 
@@ -35,7 +35,7 @@ Common issues and solutions when using ExFig Action.
 1. Reduce the rate limit:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     rate_limit: 5  # Reduce from default 10
 ```
@@ -43,7 +43,7 @@ Common issues and solutions when using ExFig Action.
 2. Increase max retries:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     max_retries: 6  # Increase from default 3
 ```
@@ -51,7 +51,7 @@ Common issues and solutions when using ExFig Action.
 3. Enable caching to reduce API calls:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     cache: true
 ```
@@ -67,7 +67,7 @@ Common issues and solutions when using ExFig Action.
 1. Pin a specific version instead of using `latest`:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     version: 'v1.2.0'
 ```
@@ -83,7 +83,7 @@ Common issues and solutions when using ExFig Action.
 1. Enable verbose logging to debug:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     verbose: true
 ```
@@ -103,7 +103,7 @@ Common issues and solutions when using ExFig Action.
 1. Check cache key prefix is consistent:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     cache: true
     cache_key_prefix: exfig-icons  # Use consistent prefix
@@ -112,7 +112,7 @@ Common issues and solutions when using ExFig Action.
 2. Verify cache path is accessible:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     cache: true
     cache_path: '.exfig-cache.json'  # Default location
@@ -133,28 +133,33 @@ If caches are still not being restored:
 
 ### Error: Config file not found
 
-**Cause:** `exfig.yml` doesn't exist at the specified path.
+**Cause:** `exfig.pkl` doesn't exist at the specified path.
 
 **Solution:**
 
 1. Create the config file:
 
-```yaml
-# exfig.yml
-figma:
-  file_key: YOUR_FILE_KEY
+```pkl
+amends "package://github.com/alexey1312/ExFig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
 
-icons:
-  page: Icons
-  output: src/icons
+figma {
+  fileId = "YOUR_FILE_KEY"
+}
+
+icons {
+  new {
+    figma { page = "Icons" }
+    iOS { output = "src/icons" }
+  }
+}
 ```
 
 2. Or specify a different path:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
-    config: 'config/exfig.yml'
+    config: 'config/exfig.pkl'
 ```
 
 ### Error: Invalid command
@@ -189,14 +194,14 @@ jobs:
     runs-on: ubuntu-latest  # or macos-latest
 ```
 
-Windows is not supported in v1.
+Windows is not supported.
 
 ## Debugging
 
 ### Enable Verbose Logging
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     verbose: true
 ```
@@ -222,7 +227,7 @@ chmod +x exfig
 
 # Run the same command
 export FIGMA_PERSONAL_TOKEN="your-token"
-./exfig icons --config exfig.yml --verbose
+./exfig icons -i exfig.pkl --verbose
 ```
 
 ## Getting Help

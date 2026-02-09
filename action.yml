@@ -13,9 +13,9 @@ inputs:
     description: 'ExFig command to run: colors, icons, images, typography, batch, fetch, download'
     required: true
   config:
-    description: 'Path to exfig.yml config file'
+    description: 'Path to exfig.pkl config file (comma-separated for batch)'
     required: false
-    default: 'exfig.yml'
+    default: 'exfig.pkl'
   filter:
     description: 'Filter pattern for assets (e.g., "icon/*")'
     required: false
@@ -39,6 +39,22 @@ inputs:
     description: 'Enable experimental granular caching'
     required: false
     default: 'false'
+  concurrent_downloads:
+    description: 'CDN download parallelism (number of concurrent downloads)'
+    required: false
+    default: ''
+  timeout:
+    description: 'API timeout in seconds'
+    required: false
+    default: ''
+  fail_fast:
+    description: 'Stop on first batch error'
+    required: false
+    default: 'false'
+  report:
+    description: 'Path to write JSON report file (batch mode)'
+    required: false
+    default: ''
   rate_limit:
     description: 'Figma API rate limit (requests per second)'
     required: false
@@ -93,6 +109,8 @@ outputs:
     description: 'Error category code (RATE_LIMIT, TIMEOUT, AUTH, etc.)'
   error_message:
     description: 'First error message from failed config (truncated to 100 chars)'
+  report_json:
+    description: 'Raw JSON report content (batch mode only, from --report)'
 
 runs:
   using: 'node20'

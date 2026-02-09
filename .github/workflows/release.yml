@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Update v1 tag
+      - name: Update major version tag
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
           MAJOR="${VERSION%%.*}"

@@ -40377,6 +40377,7 @@ exports.getGitHubContext = getGitHubContext;
 exports.buildSlackPayload = buildSlackPayload;
 exports.buildCommand = buildCommand;
 exports.parseExFigOutput = parseExFigOutput;
+exports.parseReportFile = parseReportFile;
 exports.categorizeError = categorizeError;
 exports.detectCrash = detectCrash;
 exports.formatSlackMention = formatSlackMention;
@@ -40413,13 +40414,17 @@ function getInputs() {
     return {
         figmaToken: core.getInput('figma_token', { required: true }),
         command,
-        config: core.getInput('config') || 'exfig.yml',
+        config: core.getInput('config') || 'exfig.pkl',
         filter: core.getInput('filter'),
         version: core.getInput('version') || 'latest',
         cache: core.getBooleanInput('cache'),
         cachePath: core.getInput('cache_path') || '.exfig-cache.json',
         cacheKeyPrefix: core.getInput('cache_key_prefix') || 'exfig-cache',
         granularCache: core.getBooleanInput('granular_cache'),
+        concurrentDownloads: core.getInput('concurrent_downloads'),
+        timeout: core.getInput('timeout'),
+        failFast: core.getBooleanInput('fail_fast'),
+        report: core.getInput('report'),
         rateLimit: parseInt(core.getInput('rate_limit') || '10', 10),
         maxRetries: parseInt(core.getInput('max_retries') || '3', 10),
         outputDir: core.getInput('output_dir'),
@@ -40731,6 +40736,16 @@ function buildCommand(inputs) {
     if (inputs.granularCache) {
         args.push('--experimental-granular-cache');
     }
+    // Add new CLI flags
+    if (inputs.concurrentDownloads) {
+        args.push('--concurrent-downloads', inputs.concurrentDownloads);
+    }
+    if (inputs.timeout) {
+        args.push('--timeout', inputs.timeout);
+    }
+    if (inputs.failFast) {
+        args.push('--fail-fast');
+    }
     // Add rate limit and retries
     args.push('--rate-limit', inputs.rateLimit.toString());
     args.push('--max-retries', inputs.maxRetries.toString());
@@ -40746,11 +40761,17 @@ function buildCommand(inputs) {
     if (configPaths.length > 0) {
         args.push(...configPaths);
     }
+    // Auto-inject --report for batch mode (structured JSON parsing)
+    let reportPath = '';
+    if (inputs.command === 'batch') {
+        reportPath = inputs.report || path.join(os.tmpdir(), 'exfig-report.json');
+        args.push('--report', reportPath);
+    }
     // Add extra arguments
     if (inputs.extraArgs) {
         args.push(...inputs.extraArgs.split(/\s+/).filter(Boolean));
     }
-    return { args, configPaths };
+    return { args, configPaths, reportPath };
 }
 async function runExFig(binaryPath, args, figmaToken) {
     let stdout = '';
@@ -40815,6 +40836,48 @@ function parseExFigOutput(output) {
         errorMessage,
         errorCategory,
     };
+}
+function parseReportFile(reportPath) {
+    if (!fs.existsSync(reportPath))
+        return null;
+    try {
+        const content = fs.readFileSync(reportPath, 'utf-8');
+        const report = JSON.parse(content);
+        let assetsExported = 0;
+        let validatedCount = 0;
+        let exportedConfigs = 0;
+        let errorMessage = '';
+        let errorCategory = '';
+        for (const r of report.results) {
+            if (r.success && r.stats) {
+                const total = r.stats.colors + r.stats.icons + r.stats.images + r.stats.typography;
+                if (total > 0) {
+                    assetsExported += total;
+                    exportedConfigs++;
+                }
+                else {
+                    validatedCount++;
+                }
+            }
+            else if (!r.success && r.error && !errorMessage) {
+                errorMessage = r.error.substring(0, 100);
+                if (r.error.length > 100)
+                    errorMessage += '...';
+                errorCategory = categorizeError(r.error);
+            }
+        }
+        return {
+            assetsExported,
+            validatedCount,
+            exportedConfigs,
+            failedCount: report.failureCount,
+            errorMessage,
+            errorCategory,
+        };
+    }
+    catch {
+        return null;
+    }
 }
 function categorizeError(error) {
     const errorLower = error.toLowerCase();
@@ -40962,6 +41025,7 @@ async function run() {
         exportedConfigs: 0,
         errorCategory: '',
         errorMessage: '',
+        reportJson: '',
     };
     let inputs = null;
     let context = null;
@@ -40988,15 +41052,34 @@ async function run() {
         // Step 6: Restore asset cache
         outputs.cacheHit = await restoreAssetCache(inputs, context.runId);
         // Step 7: Build and run command
-        const { args, configPaths } = buildCommand(inputs);
+        const { args, configPaths, reportPath } = buildCommand(inputs);
         // Build config summary for batch command
         if (configPaths.length > 0) {
             outputs.configSummary = configPaths.map(p => path.basename(p)).join(', ');
         }
         const result = await runExFig(binaryPath, args, inputs.figmaToken);
         outputs.duration = `${result.durationSeconds}s`;
-        // Parse output
-        const metrics = parseExFigOutput(result.stdout + result.stderr);
+        // Parse output: prefer structured report for batch, fallback to regex
+        let metrics;
+        if (inputs.command === 'batch' && reportPath) {
+            const reportMetrics = parseReportFile(reportPath);
+            if (reportMetrics) {
+                metrics = reportMetrics;
+                try {
+                    outputs.reportJson = fs.readFileSync(reportPath, 'utf-8');
+                }
+                catch {
+                    // Non-fatal: report file read failed after successful parse
+                }
+            }
+            else {
+                core.warning('Report file not found, falling back to output parsing');
+                metrics = parseExFigOutput(result.stdout + result.stderr);
+            }
+        }
+        else {
+            metrics = parseExFigOutput(result.stdout + result.stderr);
+        }
         outputs.assetsExported = metrics.assetsExported;
         outputs.validatedCount = metrics.validatedCount;
         outputs.exportedConfigs = metrics.exportedConfigs;
@@ -41071,6 +41154,7 @@ function setOutputs(outputs) {
     core.setOutput('exported_configs', outputs.exportedConfigs);
     core.setOutput('error_category', outputs.errorCategory);
     core.setOutput('error_message', outputs.errorMessage);
+    core.setOutput('report_json', outputs.reportJson);
 }
 async function handleSlackNotification(inputs, outputs, context, version, platform) {
     const runUrl = `${context.serverUrl}/${context.repository}/actions/runs/${context.runId}`;

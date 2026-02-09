@@ -6,7 +6,7 @@ name: Sync Figma Assets on PR
 on:
   pull_request:
     paths:
-      - 'exfig.yml'
+      - 'exfig.pkl'
       - '.github/workflows/figma-sync.yml'
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
 
       - name: Export icons
         id: export
-        uses: alexey1312/exfig-action@v1
+        uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons

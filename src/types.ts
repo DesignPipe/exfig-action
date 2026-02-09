@@ -27,7 +27,7 @@ export interface ActionInputs {
   figmaToken: string;
   /** ExFig command to run */
   command: ExFigCommand;
-  /** Path to exfig.yml config file (can be comma-separated for batch) */
+  /** Path to exfig.pkl config file (can be comma-separated for batch) */
   config: string;
   /** Filter pattern for assets */
   filter: string;
@@ -41,6 +41,14 @@ export interface ActionInputs {
   cacheKeyPrefix: string;
   /** Enable experimental granular caching */
   granularCache: boolean;
+  /** CDN download parallelism */
+  concurrentDownloads: string;
+  /** API timeout in seconds */
+  timeout: string;
+  /** Stop on first batch error */
+  failFast: boolean;
+  /** JSON report output path */
+  report: string;
   /** Figma API rate limit (requests per second) */
   rateLimit: number;
   /** Maximum retries for failed API requests */
@@ -85,6 +93,8 @@ export interface ActionOutputs {
   errorCategory: ErrorCategory | '';
   /** First error message from failed config */
   errorMessage: string;
+  /** Raw JSON report content (batch mode only) */
+  reportJson: string;
 }
 
 /** Error categories for Slack notifications */
@@ -192,4 +202,33 @@ export interface GitHubContext {
   runnerOs: RunnerOS;
   /** Action path */
   actionPath: string;
+}
+
+/**
+ * Structured batch report from ExFig CLI (--report flag)
+ * Mirrors Batch.swift:884-907 BatchReport struct
+ */
+export interface BatchReport {
+  startTime: string;
+  endTime: string;
+  duration: number;
+  totalConfigs: number;
+  successCount: number;
+  failureCount: number;
+  results: BatchConfigReport[];
+}
+
+export interface BatchConfigReport {
+  name: string;
+  path: string;
+  success: boolean;
+  error: string | null;
+  stats: BatchConfigStats | null;
+}
+
+export interface BatchConfigStats {
+  colors: number;
+  icons: number;
+  images: number;
+  typography: number;
 }

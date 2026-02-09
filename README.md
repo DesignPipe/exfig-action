@@ -5,7 +5,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 ## Usage
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -14,25 +14,29 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 
 ## Inputs
 
-| Input              | Description                                                                            | Required | Default             |
-| ------------------ | -------------------------------------------------------------------------------------- | -------- | ------------------- |
-| `figma_token`      | Figma Personal Access Token                                                            | Yes      | -                   |
-| `command`          | ExFig command: `colors`, `icons`, `images`, `typography`, `batch`, `fetch`, `download` | Yes      | -                   |
-| `config`           | Path to exfig.yml config file                                                          | No       | `exfig.yml`         |
-| `filter`           | Filter pattern for assets (e.g., `icon/*`)                                             | No       | -                   |
-| `version`          | ExFig version to use                                                                   | No       | `latest`            |
-| `cache`            | Enable caching for incremental exports                                                 | No       | `false`             |
-| `cache_path`       | Path to cache file                                                                     | No       | `.exfig-cache.json` |
-| `cache_key_prefix` | Prefix for cache key                                                                   | No       | `exfig-cache`       |
-| `granular_cache`   | Enable experimental granular caching                                                   | No       | `false`             |
-| `rate_limit`       | Figma API rate limit (requests/second)                                                 | No       | `10`                |
-| `max_retries`      | Maximum retries for failed API requests                                                | No       | `3`                 |
-| `output_dir`       | Output directory for exported assets                                                   | No       | -                   |
-| `verbose`          | Enable verbose logging                                                                 | No       | `false`             |
-| `extra_args`       | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
-| `slack_webhook`    | Slack Incoming Webhook URL for notifications                                           | No       | -                   |
-| `slack_mention`    | User/group to mention on failure (plain ID: `U123`, `S456`; or `@channel`)             | No       | -                   |
-| `slack_templates`  | Path to custom Slack templates directory (overrides defaults)                          | No       | -                   |
+| Input                  | Description                                                                            | Required | Default             |
+| ---------------------- | -------------------------------------------------------------------------------------- | -------- | ------------------- |
+| `figma_token`          | Figma Personal Access Token                                                            | Yes      | -                   |
+| `command`              | ExFig command: `colors`, `icons`, `images`, `typography`, `batch`, `fetch`, `download` | Yes      | -                   |
+| `config`               | Path to exfig.pkl config file (comma-separated for batch)                              | No       | `exfig.pkl`         |
+| `filter`               | Filter pattern for assets (e.g., `icon/*`)                                             | No       | -                   |
+| `version`              | ExFig version to use                                                                   | No       | `latest`            |
+| `cache`                | Enable caching for incremental exports                                                 | No       | `false`             |
+| `cache_path`           | Path to cache file                                                                     | No       | `.exfig-cache.json` |
+| `cache_key_prefix`     | Prefix for cache key                                                                   | No       | `exfig-cache`       |
+| `granular_cache`       | Enable experimental granular caching                                                   | No       | `false`             |
+| `concurrent_downloads` | CDN download parallelism (number of concurrent downloads)                              | No       | -                   |
+| `timeout`              | API timeout in seconds                                                                 | No       | -                   |
+| `fail_fast`            | Stop on first batch error                                                              | No       | `false`             |
+| `report`               | Path to write JSON report file (batch mode)                                            | No       | -                   |
+| `rate_limit`           | Figma API rate limit (requests/second)                                                 | No       | `10`                |
+| `max_retries`          | Maximum retries for failed API requests                                                | No       | `3`                 |
+| `output_dir`           | Output directory for exported assets                                                   | No       | -                   |
+| `verbose`              | Enable verbose logging                                                                 | No       | `false`             |
+| `extra_args`           | Additional CLI arguments to pass to ExFig (e.g., `--force --dry-run`)                  | No       | -                   |
+| `slack_webhook`        | Slack Incoming Webhook URL for notifications                                           | No       | -                   |
+| `slack_mention`        | User/group to mention on failure (plain ID: `U123`, `S456`; or `@channel`)             | No       | -                   |
+| `slack_templates`      | Path to custom Slack templates directory (overrides defaults)                          | No       | -                   |
 
 ## Outputs
 
@@ -49,6 +53,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alex
 | `exported_configs` | Number of configs that exported new assets            |
 | `error_category`   | Error category code (RATE_LIMIT, TIMEOUT, AUTH, etc.) |
 | `error_message`    | First error message from failed config (truncated)    |
+| `report_json`      | Raw JSON report content (batch mode only)             |
 
 ## Examples
 
@@ -69,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alexey1312/exfig-action@v1
+      - uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -94,7 +99,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Export colors
-        uses: alexey1312/exfig-action@v1
+        uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: colors
@@ -102,7 +107,7 @@ jobs:
           cache_key_prefix: exfig-colors
 
       - name: Export icons
-        uses: alexey1312/exfig-action@v1
+        uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -110,7 +115,7 @@ jobs:
           cache_key_prefix: exfig-icons
 
       - name: Export typography
-        uses: alexey1312/exfig-action@v1
+        uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: typography
@@ -121,7 +126,7 @@ jobs:
 ### Filter Specific Assets
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -132,7 +137,7 @@ jobs:
 ### Pin ExFig Version
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -144,11 +149,31 @@ jobs:
 Pass additional flags directly to ExFig CLI:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
     extra_args: '--force'
+```
+
+### Batch with Report
+
+Export multiple configs with a structured JSON report:
+
+```yaml
+- uses: alexey1312/exfig-action@v2
+  id: exfig
+  with:
+    figma_token: ${{ secrets.FIGMA_TOKEN }}
+    command: batch
+    config: 'exfig-colors.pkl, exfig-icons.pkl'
+    cache: true
+    fail_fast: true
+    report: 'exfig-report.json'
+
+- name: Use report
+  if: always()
+  run: echo '${{ steps.exfig.outputs.report_json }}' | jq .
 ```
 
 ### macOS Runner
@@ -160,7 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alexey1312/exfig-action@v1
+      - uses: alexey1312/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -179,7 +204,7 @@ The ExFig binary is automatically cached per OS and version to avoid re-download
 When `cache: true`, the action uses ExFig's built-in cache to enable incremental exports. Only changed assets are re-exported, significantly reducing Figma API calls and export time.
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -195,7 +220,7 @@ The cache is saved even on failure to support checkpoint resume for large export
 For better performance with large asset libraries:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -210,24 +235,28 @@ For better performance with large asset libraries:
 
 ## Configuration
 
-Create an `exfig.yml` in your repository root:
+Create an `exfig.pkl` in your repository root:
 
-```yaml
-figma:
-  file_key: YOUR_FIGMA_FILE_KEY
+```pkl
+amends "package://github.com/alexey1312/ExFig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
 
-icons:
-  page: Icons
-  output: src/assets/icons
-  format: svg
+figma {
+  fileId = "YOUR_FIGMA_FILE_KEY"
+}
 
-colors:
-  page: Colors
-  output: src/styles/colors.json
+icons {
+  new {
+    figma { page = "Icons" }
+    iOS { output = "Sources/Assets.xcassets/Icons" }
+  }
+}
 
-typography:
-  page: Typography
-  output: src/styles/typography.json
+colors {
+  new {
+    figma { page = "Colors" }
+    iOS { output = "Sources/Assets.xcassets/Colors" }
+  }
+}
 ```
 
 See [ExFig documentation](https://github.com/alexey1312/exfig) for full configuration options.
@@ -237,11 +266,11 @@ See [ExFig documentation](https://github.com/alexey1312/exfig) for full configur
 Send notifications to Slack when exports complete or fail:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: batch
-    config: 'exfig/colors.yaml, exfig/icons.yaml'
+    config: 'exfig/colors.pkl, exfig/icons.pkl'
     slack_webhook: ${{ secrets.SLACK_WEBHOOK }}
     slack_mention: 'U123456'  # Mention on failure only (auto-formatted)
 ```
@@ -256,7 +285,7 @@ Send notifications to Slack when exports complete or fail:
 
 ### Message Contents
 
-- **Command**: Shows command and config files (e.g., `batch (colors.yaml, icons.yaml)`)
+- **Command**: Shows command and config files (e.g., `batch (colors.pkl, icons.pkl)`)
 - **Assets**: Number of exported assets
 - **Duration**: Execution time
 - **Repository**: Link to GitHub Actions run
@@ -266,7 +295,7 @@ Send notifications to Slack when exports complete or fail:
 Override default notification templates with your own Slack Block Kit JSON:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -289,7 +318,7 @@ Templates support these placeholders:
 | -------------- | -------------------- | ------------------------ |
 | `{{ICON}}`     | Status icon          | ✅, ❌, 💨               |
 | `{{TITLE}}`    | Main title           | "Export completed"       |
-| `{{COMMAND}}`  | Command with configs | "batch (colors.yaml)"    |
+| `{{COMMAND}}`  | Command with configs | "batch (colors.pkl)"     |
 | `{{ASSETS}}`   | Assets count         | "140"                    |
 | `{{DURATION}}` | Execution time       | "5s"                     |
 | `{{REPO}}`     | Repository name      | "org/repo"               |
@@ -316,7 +345,7 @@ Error: Rate limit exceeded
 Reduce `rate_limit` input or wait before retrying:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -329,7 +358,7 @@ Reduce `rate_limit` input or wait before retrying:
 Ensure caching is enabled and the cache path is accessible:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons

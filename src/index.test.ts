@@ -1,5 +1,6 @@
 import {
   parseExFigOutput,
+  parseReportFile,
   categorizeError,
   detectCrash,
   formatSlackMention,
@@ -14,6 +15,7 @@ import {
 import type { ActionInputs, SlackTemplateVars } from './types';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as path from 'path';
 
 // Mock fs.existsSync for buildCommand tests
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
@@ -234,13 +236,17 @@ describe('buildCommand', () => {
   const baseInputs: ActionInputs = {
     figmaToken: 'test-token',
     command: 'colors',
-    config: 'exfig.yml',
+    config: 'exfig.pkl',
     filter: '',
     version: 'latest',
     cache: false,
     cachePath: '.exfig-cache.json',
     cacheKeyPrefix: 'exfig-cache',
     granularCache: false,
+    concurrentDownloads: '',
+    timeout: '',
+    failFast: false,
+    report: '',
     rateLimit: 10,
     maxRetries: 3,
     outputDir: '',
@@ -256,7 +262,7 @@ describe('buildCommand', () => {
     const { args } = buildCommand({ ...baseInputs });
     expect(args).toContain('colors');
     expect(args).toContain('-i');
-    expect(args).toContain('exfig.yml');
+    expect(args).toContain('exfig.pkl');
     expect(args).toContain('--rate-limit');
     expect(args).toContain('10');
   });
@@ -302,19 +308,19 @@ describe('buildCommand', () => {
   });
 
   it('should handle batch command with multiple configs', () => {
-    mockExistsSync.mockImplementation((path: string) => {
-      return path === 'config1.yml' || path === 'config2.yml';
+    mockExistsSync.mockImplementation((p: string) => {
+      return p === 'config1.pkl' || p === 'config2.pkl';
     });
     const { args, configPaths } = buildCommand({
       ...baseInputs,
       command: 'batch',
-      config: 'config1.yml, config2.yml, missing.yml',
+      config: 'config1.pkl, config2.pkl, missing.pkl',
     });
     expect(args[0]).toBe('batch');
-    expect(configPaths).toEqual(['config1.yml', 'config2.yml']);
-    expect(args).toContain('config1.yml');
-    expect(args).toContain('config2.yml');
-    expect(args).not.toContain('missing.yml');
+    expect(configPaths).toEqual(['config1.pkl', 'config2.pkl']);
+    expect(args).toContain('config1.pkl');
+    expect(args).toContain('config2.pkl');
+    expect(args).not.toContain('missing.pkl');
   });
 
   it('should throw error when no valid batch configs found', () => {
@@ -323,9 +329,58 @@ describe('buildCommand', () => {
       buildCommand({
         ...baseInputs,
         command: 'batch',
-        config: 'missing1.yml, missing2.yml',
+        config: 'missing1.pkl, missing2.pkl',
       })
     ).toThrow('No valid config files found for batch command');
+  });
+
+  it('should add --concurrent-downloads flag', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args } = buildCommand({ ...baseInputs, concurrentDownloads: '8' });
+    expect(args).toContain('--concurrent-downloads');
+    expect(args).toContain('8');
+  });
+
+  it('should add --timeout flag', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args } = buildCommand({ ...baseInputs, timeout: '60' });
+    expect(args).toContain('--timeout');
+    expect(args).toContain('60');
+  });
+
+  it('should add --fail-fast flag', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args } = buildCommand({ ...baseInputs, failFast: true });
+    expect(args).toContain('--fail-fast');
+  });
+
+  it('should auto-inject --report for batch command', () => {
+    mockExistsSync.mockImplementation((p: string) => p === 'exfig.pkl');
+    const { args, reportPath } = buildCommand({
+      ...baseInputs,
+      command: 'batch',
+    });
+    expect(args).toContain('--report');
+    expect(reportPath).toContain('exfig-report.json');
+  });
+
+  it('should use custom report path for batch command', () => {
+    mockExistsSync.mockImplementation((p: string) => p === 'exfig.pkl');
+    const { args, reportPath } = buildCommand({
+      ...baseInputs,
+      command: 'batch',
+      report: '/tmp/custom-report.json',
+    });
+    expect(args).toContain('--report');
+    expect(args).toContain('/tmp/custom-report.json');
+    expect(reportPath).toBe('/tmp/custom-report.json');
+  });
+
+  it('should not inject --report for non-batch commands', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args, reportPath } = buildCommand({ ...baseInputs, command: 'colors' });
+    expect(args).not.toContain('--report');
+    expect(reportPath).toBe('');
   });
 });
 
@@ -509,5 +564,138 @@ describe('buildSlackPayload', () => {
     const header = attachments[0].blocks[0] as { text: { text: string } };
     expect(header.text.text).toContain('❌');
     expect(header.text.text).toContain('Export failed');
+  });
+});
+
+describe('parseReportFile', () => {
+  const mockExistsSync = fs.existsSync as jest.Mock;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    mockExistsSync.mockReset();
+    tmpDir = os.tmpdir();
+  });
+
+  function writeReport(filename: string, content: object): string {
+    const filePath = path.join(tmpDir, filename);
+    const realFs = jest.requireActual<typeof fs>('fs');
+    realFs.writeFileSync(filePath, JSON.stringify(content), 'utf-8');
+    return filePath;
+  }
+
+  it('should parse valid batch report with mixed results', () => {
+    const reportPath = writeReport('test-report-1.json', {
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:01:00Z',
+      duration: 60,
+      totalConfigs: 3,
+      successCount: 2,
+      failureCount: 1,
+      results: [
+        {
+          name: 'colors',
+          path: 'exfig-colors.pkl',
+          success: true,
+          error: null,
+          stats: { colors: 24, icons: 0, images: 0, typography: 0 },
+        },
+        {
+          name: 'icons',
+          path: 'exfig-icons.pkl',
+          success: true,
+          error: null,
+          stats: { colors: 0, icons: 48, images: 0, typography: 0 },
+        },
+        {
+          name: 'images',
+          path: 'exfig-images.pkl',
+          success: false,
+          error: 'Rate limit exceeded',
+          stats: null,
+        },
+      ],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.assetsExported).toBe(72); // 24 + 48
+    expect(metrics!.exportedConfigs).toBe(2);
+    expect(metrics!.failedCount).toBe(1);
+    expect(metrics!.errorMessage).toBe('Rate limit exceeded');
+    expect(metrics!.errorCategory).toBe('RATE_LIMIT');
+  });
+
+  it('should count config with zero stats as validated', () => {
+    const reportPath = writeReport('test-report-2.json', {
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:05Z',
+      duration: 5,
+      totalConfigs: 1,
+      successCount: 1,
+      failureCount: 0,
+      results: [
+        {
+          name: 'colors',
+          path: 'exfig-colors.pkl',
+          success: true,
+          error: null,
+          stats: { colors: 0, icons: 0, images: 0, typography: 0 },
+        },
+      ],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.validatedCount).toBe(1);
+    expect(metrics!.exportedConfigs).toBe(0);
+    expect(metrics!.assetsExported).toBe(0);
+  });
+
+  it('should return null for missing file', () => {
+    mockExistsSync.mockReturnValue(false);
+    const metrics = parseReportFile('/nonexistent/report.json');
+    expect(metrics).toBeNull();
+  });
+
+  it('should return null for malformed JSON', () => {
+    const reportPath = path.join(tmpDir, 'test-report-bad.json');
+    const realFs = jest.requireActual<typeof fs>('fs');
+    realFs.writeFileSync(reportPath, 'not json {{{', 'utf-8');
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).toBeNull();
+  });
+
+  it('should truncate long error messages', () => {
+    const longError = 'A'.repeat(150);
+    const reportPath = writeReport('test-report-3.json', {
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:05Z',
+      duration: 5,
+      totalConfigs: 1,
+      successCount: 0,
+      failureCount: 1,
+      results: [
+        {
+          name: 'colors',
+          path: 'exfig-colors.pkl',
+          success: false,
+          error: longError,
+          stats: null,
+        },
+      ],
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.errorMessage.length).toBe(103); // 100 + '...'
+    expect(metrics!.errorMessage.endsWith('...')).toBe(true);
   });
 });

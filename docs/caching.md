@@ -75,14 +75,14 @@ When exporting multiple asset types, use different cache key prefixes:
 
 ```yaml
 - name: Export colors
-  uses: alexey1312/exfig-action@v1
+  uses: alexey1312/exfig-action@v2
   with:
     command: colors
     cache: true
     cache_key_prefix: exfig-colors
 
 - name: Export icons
-  uses: alexey1312/exfig-action@v1
+  uses: alexey1312/exfig-action@v2
   with:
     command: icons
     cache: true
@@ -118,7 +118,7 @@ The experimental granular cache feature (`granular_cache: true`) provides finer-
 Enable with:
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: alexey1312/exfig-action@v2
   with:
     cache: true
     granular_cache: true
