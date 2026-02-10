@@ -143,7 +143,7 @@ async function cacheBinary(
   runnerTemp: string
 ): Promise<boolean> {
   const installDir = getBinaryInstallDir(runnerTemp);
-  const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
+  const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}-pkl-${PKL_VERSION}`;
 
   const cacheHit = await cache.restoreCache([installDir], cacheKey);
   if (cacheHit) {
@@ -821,7 +821,7 @@ async function run(): Promise<void> {
       await installPkl(platform, context.runnerTemp);
 
       // Save both ExFig and pkl to cache
-      const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
+      const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}-pkl-${PKL_VERSION}`;
       await cache.saveCache([installDir], cacheKey);
     }
 
