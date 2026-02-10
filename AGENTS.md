@@ -67,6 +67,8 @@ Single Node.js process executes: validate inputs → resolve version → cache/d
 
 **Cache gotcha:** `saveCache([installDir])` captures entire directory. New binaries must be installed _before_ `saveCache()` call in `run()` — not inside `downloadBinary()`.
 
+**Slack notification:** Uses raw `https.request` (no libraries). All errors are non-fatal (`resolve()`, never `reject()`). Always `res.resume()` response body to avoid holding the socket open.
+
 ## Testing
 
 - Unit tests: `parseExFigOutput`, `categorizeError`, `formatSlackMention`, `buildCommand`, `getPklBinaryName`, `detectCrash`, `parseReportFile`

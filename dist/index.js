@@ -41011,6 +41011,7 @@ async function sendSlackNotification(webhook, payload) {
             },
         };
         const req = https.request(options, res => {
+            res.resume(); // Drain response body to free socket immediately
             if (res.statusCode === 200) {
                 core.info('Slack notification sent successfully');
                 resolve();
@@ -41019,6 +41020,11 @@ async function sendSlackNotification(webhook, payload) {
                 core.warning(`Slack notification failed with HTTP ${res.statusCode}`);
                 resolve(); // Non-fatal
             }
+        });
+        req.setTimeout(30_000, () => {
+            core.warning('Slack notification timed out after 30s');
+            req.destroy();
+            resolve();
         });
         req.on('error', err => {
             core.warning(`Slack notification error: ${err.message}`);
