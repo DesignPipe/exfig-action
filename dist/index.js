@@ -40369,6 +40369,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getPklBinaryName = getPklBinaryName;
 exports.isValidCommand = isValidCommand;
 exports.validatePlatform = validatePlatform;
 exports.getBinaryInstallDir = getBinaryInstallDir;
@@ -40403,6 +40404,7 @@ const VALID_COMMANDS = [
 ];
 const EXFIG_REPO = 'alexey1312/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
+const PKL_VERSION = '0.30.2';
 // =============================================================================
 // Input Parsing
 // =============================================================================
@@ -40519,9 +40521,6 @@ async function downloadBinary(platform, version, runnerTemp) {
     const binaryPath = getBinaryPath(installDir);
     await fs.promises.chmod(binaryPath, 0o755);
     core.info(`ExFig installed to ${binaryPath}`);
-    // Save to cache
-    const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
-    await cache.saveCache([installDir], cacheKey);
 }
 async function downloadFile(url, destPath) {
     return new Promise((resolve, reject) => {
@@ -40558,6 +40557,26 @@ async function downloadFile(url, destPath) {
         };
         request(url);
     });
+}
+// =============================================================================
+// Pkl CLI Installation
+// =============================================================================
+function getPklBinaryName(platform, arch) {
+    if (platform === 'darwin') {
+        return arch === 'arm64' ? 'pkl-macos-aarch64' : 'pkl-macos-amd64';
+    }
+    return 'pkl-linux-amd64';
+}
+async function installPkl(platform, runnerTemp) {
+    const installDir = getBinaryInstallDir(runnerTemp);
+    const pklPath = path.join(installDir, 'pkl');
+    const arch = os.arch();
+    const binaryName = getPklBinaryName(platform, arch);
+    const downloadUrl = `https://github.com/apple/pkl/releases/download/${PKL_VERSION}/${binaryName}`;
+    core.info(`Installing pkl ${PKL_VERSION} (${binaryName})...`);
+    await downloadFile(downloadUrl, pklPath);
+    await fs.promises.chmod(pklPath, 0o755);
+    core.info(`pkl ${PKL_VERSION} installed to ${pklPath}`);
 }
 // =============================================================================
 // Asset Cache
@@ -41046,6 +41065,11 @@ async function run() {
         const binaryCacheHit = await cacheBinary(platform, version, context.runnerTemp);
         if (!binaryCacheHit) {
             await downloadBinary(platform, version, context.runnerTemp);
+            // Step 4b: Install pkl CLI (required by ExFig for .pkl config parsing)
+            await installPkl(platform, context.runnerTemp);
+            // Save both ExFig and pkl to cache
+            const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
+            await cache.saveCache([installDir], cacheKey);
         }
         // Step 5: Add to PATH
         core.addPath(installDir);

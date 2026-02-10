@@ -31,7 +31,7 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 **Key Files:**
 
 - `action.yml` - Action definition (inputs/outputs, runs: node20)
-- `src/index.ts` - Main logic (~600 lines)
+- `src/index.ts` - Main logic (~1050 lines)
 - `src/types.ts` - TypeScript interfaces
 - `dist/index.js` - Compiled bundle (committed)
 - `hk.pkl` - Linting/formatting configuration
@@ -49,6 +49,8 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 
 Git hooks auto-configure via `hooks.enter` in mise.toml.
 
+**Note:** Run `npm ci` first if `node_modules/` is missing. `npx jest` works when `./bin/mise run test` fails to find jest.
+
 ## Code Style
 
 - TypeScript strict mode, ESLint + Prettier via hk
@@ -61,9 +63,13 @@ Single Node.js process executes: validate inputs → resolve version → cache/d
 
 **Binary naming:** `ExFig` (capital letters), not `exfig`.
 
+**Pkl dependency:** ExFig v2 requires `pkl` CLI (Apple Pkl). Version pinned as `PKL_VERSION` in `src/index.ts`. Both binaries cached together in `installDir`.
+
+**Cache gotcha:** `saveCache([installDir])` captures entire directory. New binaries must be installed _before_ `saveCache()` call in `run()` — not inside `downloadBinary()`.
+
 ## Testing
 
-- Unit tests: `parseExFigOutput`, `categorizeError`, `formatSlackMention`, `buildCommand`
+- Unit tests: `parseExFigOutput`, `categorizeError`, `formatSlackMention`, `buildCommand`, `getPklBinaryName`, `detectCrash`, `parseReportFile`
 - E2E: `.github/workflows/test.yml` (build, version resolution, binary download)
 
 ## Release

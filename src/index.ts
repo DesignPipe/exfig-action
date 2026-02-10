@@ -37,6 +37,7 @@ const VALID_COMMANDS: readonly ExFigCommand[] = [
 
 const EXFIG_REPO = 'alexey1312/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
+const PKL_VERSION = '0.30.2';
 
 // =============================================================================
 // Input Parsing
@@ -182,10 +183,6 @@ async function downloadBinary(
   const binaryPath = getBinaryPath(installDir);
   await fs.promises.chmod(binaryPath, 0o755);
   core.info(`ExFig installed to ${binaryPath}`);
-
-  // Save to cache
-  const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
-  await cache.saveCache([installDir], cacheKey);
 }
 
 async function downloadFile(url: string, destPath: string): Promise<void> {
@@ -228,6 +225,30 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 
     request(url);
   });
+}
+
+// =============================================================================
+// Pkl CLI Installation
+// =============================================================================
+
+export function getPklBinaryName(platform: Platform, arch: string): string {
+  if (platform === 'darwin') {
+    return arch === 'arm64' ? 'pkl-macos-aarch64' : 'pkl-macos-amd64';
+  }
+  return 'pkl-linux-amd64';
+}
+
+async function installPkl(platform: Platform, runnerTemp: string): Promise<void> {
+  const installDir = getBinaryInstallDir(runnerTemp);
+  const pklPath = path.join(installDir, 'pkl');
+  const arch = os.arch();
+  const binaryName = getPklBinaryName(platform, arch);
+  const downloadUrl = `https://github.com/apple/pkl/releases/download/${PKL_VERSION}/${binaryName}`;
+
+  core.info(`Installing pkl ${PKL_VERSION} (${binaryName})...`);
+  await downloadFile(downloadUrl, pklPath);
+  await fs.promises.chmod(pklPath, 0o755);
+  core.info(`pkl ${PKL_VERSION} installed to ${pklPath}`);
 }
 
 // =============================================================================
@@ -795,6 +816,13 @@ async function run(): Promise<void> {
     const binaryCacheHit = await cacheBinary(platform, version, context.runnerTemp);
     if (!binaryCacheHit) {
       await downloadBinary(platform, version, context.runnerTemp);
+
+      // Step 4b: Install pkl CLI (required by ExFig for .pkl config parsing)
+      await installPkl(platform, context.runnerTemp);
+
+      // Save both ExFig and pkl to cache
+      const cacheKey = `exfig-binary-${platform === 'darwin' ? 'macOS' : 'Linux'}-${version}`;
+      await cache.saveCache([installDir], cacheKey);
     }
 
     // Step 5: Add to PATH

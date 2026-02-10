@@ -11,6 +11,7 @@ import {
   getBinaryPath,
   getGitHubContext,
   buildSlackPayload,
+  getPklBinaryName,
 } from './index';
 import type { ActionInputs, SlackTemplateVars } from './types';
 import * as fs from 'fs';
@@ -697,5 +698,23 @@ describe('parseReportFile', () => {
     expect(metrics).not.toBeNull();
     expect(metrics!.errorMessage.length).toBe(103); // 100 + '...'
     expect(metrics!.errorMessage.endsWith('...')).toBe(true);
+  });
+});
+
+describe('getPklBinaryName', () => {
+  it('should return pkl-macos-aarch64 for darwin arm64', () => {
+    expect(getPklBinaryName('darwin', 'arm64')).toBe('pkl-macos-aarch64');
+  });
+
+  it('should return pkl-macos-amd64 for darwin x64', () => {
+    expect(getPklBinaryName('darwin', 'x64')).toBe('pkl-macos-amd64');
+  });
+
+  it('should return pkl-linux-amd64 for linux', () => {
+    expect(getPklBinaryName('linux', 'x64')).toBe('pkl-linux-amd64');
+  });
+
+  it('should return pkl-linux-amd64 for linux regardless of arch', () => {
+    expect(getPklBinaryName('linux', 'arm64')).toBe('pkl-linux-amd64');
   });
 });

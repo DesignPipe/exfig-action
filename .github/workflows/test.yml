@@ -231,3 +231,49 @@ jobs:
         run: |
           "${RUNNER_TEMP}/exfig/ExFig" --version
           echo "✓ ExFig binary executes successfully"
+
+  # ============================================================================
+  # E2E Tests - Pkl CLI Installation
+  # ============================================================================
+  test-pkl-installation:
+    name: Test pkl installation (${{ matrix.os }})
+    needs: build-and-test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install and build
+        run: npm ci && npm run build
+
+      - name: Test pkl binary download
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+          RUNNER_OS: ${{ runner.os }}
+        run: |
+          PKL_VERSION="0.30.2"
+          INSTALL_DIR="${RUNNER_TEMP}/exfig"
+          mkdir -p "$INSTALL_DIR"
+
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            PKL_BINARY="pkl-macos-aarch64"
+          else
+            PKL_BINARY="pkl-linux-amd64"
+          fi
+
+          URL="https://github.com/apple/pkl/releases/download/${PKL_VERSION}/${PKL_BINARY}"
+          echo "Downloading pkl ${PKL_VERSION} (${PKL_BINARY})..."
+          echo "URL: ${URL}"
+
+          curl -sL -o "${INSTALL_DIR}/pkl" "$URL"
+          chmod +x "${INSTALL_DIR}/pkl"
+          "${INSTALL_DIR}/pkl" --version
+          echo "✓ pkl ${PKL_VERSION} installed successfully"
