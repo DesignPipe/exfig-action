@@ -40405,6 +40405,14 @@ const VALID_COMMANDS = [
 const EXFIG_REPO = 'alexey1312/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
 const PKL_VERSION = '0.30.2';
+/** Commands that support --report for structured JSON output */
+const REPORT_COMMANDS = [
+    'batch',
+    'colors',
+    'icons',
+    'images',
+    'typography',
+];
 // =============================================================================
 // Input Parsing
 // =============================================================================
@@ -40780,9 +40788,9 @@ function buildCommand(inputs) {
     if (configPaths.length > 0) {
         args.push(...configPaths);
     }
-    // Auto-inject --report for batch mode (structured JSON parsing)
+    // Auto-inject --report for commands that support structured JSON output
     let reportPath = '';
-    if (inputs.command === 'batch') {
+    if (REPORT_COMMANDS.includes(inputs.command)) {
         reportPath = inputs.report || path.join(os.tmpdir(), 'exfig-report.json');
         args.push('--report', reportPath);
     }
@@ -40862,41 +40870,70 @@ function parseReportFile(reportPath) {
     try {
         const content = fs.readFileSync(reportPath, 'utf-8');
         const report = JSON.parse(content);
-        let assetsExported = 0;
-        let validatedCount = 0;
-        let exportedConfigs = 0;
-        let errorMessage = '';
-        let errorCategory = '';
-        for (const r of report.results) {
-            if (r.success && r.stats) {
-                const total = r.stats.colors + r.stats.icons + r.stats.images + r.stats.typography;
-                if (total > 0) {
-                    assetsExported += total;
-                    exportedConfigs++;
-                }
-                else {
-                    validatedCount++;
-                }
-            }
-            else if (!r.success && r.error && !errorMessage) {
-                errorMessage = r.error.substring(0, 100);
-                if (r.error.length > 100)
-                    errorMessage += '...';
-                errorCategory = categorizeError(r.error);
-            }
+        // Discriminate batch vs single export report by structure
+        if ('results' in report) {
+            return parseBatchReport(report);
         }
-        return {
-            assetsExported,
-            validatedCount,
-            exportedConfigs,
-            failedCount: report.failureCount,
-            errorMessage,
-            errorCategory,
-        };
+        else if ('command' in report) {
+            return parseSingleReport(report);
+        }
+        return null;
     }
     catch {
         return null;
     }
+}
+function parseBatchReport(report) {
+    let assetsExported = 0;
+    let validatedCount = 0;
+    let exportedConfigs = 0;
+    let errorMessage = '';
+    let errorCategory = '';
+    for (const r of report.results) {
+        if (r.success && r.stats) {
+            const total = r.stats.colors + r.stats.icons + r.stats.images + r.stats.typography;
+            if (total > 0) {
+                assetsExported += total;
+                exportedConfigs++;
+            }
+            else {
+                validatedCount++;
+            }
+        }
+        else if (!r.success && r.error && !errorMessage) {
+            errorMessage = r.error.substring(0, 100);
+            if (r.error.length > 100)
+                errorMessage += '...';
+            errorCategory = categorizeError(r.error);
+        }
+    }
+    return {
+        assetsExported,
+        validatedCount,
+        exportedConfigs,
+        failedCount: report.failureCount,
+        errorMessage,
+        errorCategory,
+    };
+}
+function parseSingleReport(report) {
+    const assetsExported = report.stats.colors + report.stats.icons + report.stats.images + report.stats.typography;
+    let errorMessage = '';
+    let errorCategory = '';
+    if (!report.success && report.error) {
+        errorMessage = report.error.substring(0, 100);
+        if (report.error.length > 100)
+            errorMessage += '...';
+        errorCategory = categorizeError(report.error);
+    }
+    return {
+        assetsExported,
+        validatedCount: report.success && assetsExported === 0 ? 1 : 0,
+        exportedConfigs: assetsExported > 0 ? 1 : 0,
+        failedCount: report.success ? 0 : 1,
+        errorMessage,
+        errorCategory,
+    };
 }
 function categorizeError(error) {
     const errorLower = error.toLowerCase();
@@ -41089,9 +41126,9 @@ async function run() {
         }
         const result = await runExFig(binaryPath, args, inputs.figmaToken);
         outputs.duration = `${result.durationSeconds}s`;
-        // Parse output: prefer structured report for batch, fallback to regex
+        // Parse output: prefer structured report when available, fallback to regex
         let metrics;
-        if (inputs.command === 'batch' && reportPath) {
+        if (REPORT_COMMANDS.includes(inputs.command) && reportPath) {
             const reportMetrics = parseReportFile(reportPath);
             if (reportMetrics) {
                 metrics = reportMetrics;

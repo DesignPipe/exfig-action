@@ -93,7 +93,7 @@ export interface ActionOutputs {
   errorCategory: ErrorCategory | '';
   /** First error message from failed config */
   errorMessage: string;
-  /** Raw JSON report content (batch mode only) */
+  /** Raw JSON report content */
   reportJson: string;
 }
 
@@ -231,4 +231,33 @@ export interface BatchConfigStats {
   icons: number;
   images: number;
   typography: number;
+}
+
+/**
+ * Structured export report from ExFig CLI (--report flag, single commands)
+ * Mirrors ExportReport struct for colors/icons/images/typography commands
+ */
+export interface ExportReport {
+  version: number;
+  command: string;
+  config: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  success: boolean;
+  error: string | null;
+  stats: { colors: number; icons: number; images: number; typography: number };
+  warnings: string[];
+  manifest: AssetManifest | null;
+}
+
+export interface AssetManifest {
+  outputDirectory: string;
+  files: AssetManifestFile[];
+  deleted: string[];
+}
+
+export interface AssetManifestFile {
+  path: string;
+  assetType: string;
 }

@@ -52,7 +52,7 @@ inputs:
     required: false
     default: 'false'
   report:
-    description: 'Path to write JSON report file (batch mode)'
+    description: 'Path to write JSON report file'
     required: false
     default: ''
   rate_limit:
@@ -110,7 +110,7 @@ outputs:
   error_message:
     description: 'First error message from failed config (truncated to 100 chars)'
   report_json:
-    description: 'Raw JSON report content (batch mode only, from --report)'
+    description: 'Raw JSON report content (from --report)'
 
 runs:
   using: 'node20'
