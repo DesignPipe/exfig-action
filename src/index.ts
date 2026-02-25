@@ -19,6 +19,7 @@ import type {
   SlackTemplateVars,
   GitHubContext,
   BatchReport,
+  ExportReport,
 } from './types';
 
 // =============================================================================
@@ -38,6 +39,15 @@ const VALID_COMMANDS: readonly ExFigCommand[] = [
 const EXFIG_REPO = 'alexey1312/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
 const PKL_VERSION = '0.30.2';
+
+/** Commands that support --report for structured JSON output */
+const REPORT_COMMANDS: readonly ExFigCommand[] = [
+  'batch',
+  'colors',
+  'icons',
+  'images',
+  'typography',
+];
 
 // =============================================================================
 // Input Parsing
@@ -488,9 +498,9 @@ export function buildCommand(inputs: ActionInputs): {
     args.push(...configPaths);
   }
 
-  // Auto-inject --report for batch mode (structured JSON parsing)
+  // Auto-inject --report for commands that support structured JSON output
   let reportPath = '';
-  if (inputs.command === 'batch') {
+  if (REPORT_COMMANDS.includes(inputs.command)) {
     reportPath = inputs.report || path.join(os.tmpdir(), 'exfig-report.json');
     args.push('--report', reportPath);
   }
@@ -587,43 +597,93 @@ export function parseExFigOutput(output: string): ExFigMetrics {
 
 export function parseReportFile(reportPath: string): ExFigMetrics | null {
   if (!fs.existsSync(reportPath)) return null;
+
+  let content: string;
   try {
-    const content = fs.readFileSync(reportPath, 'utf-8');
-    const report = JSON.parse(content) as BatchReport;
-
-    let assetsExported = 0;
-    let validatedCount = 0;
-    let exportedConfigs = 0;
-    let errorMessage = '';
-    let errorCategory: ErrorCategory | '' = '';
-
-    for (const r of report.results) {
-      if (r.success && r.stats) {
-        const total = r.stats.colors + r.stats.icons + r.stats.images + r.stats.typography;
-        if (total > 0) {
-          assetsExported += total;
-          exportedConfigs++;
-        } else {
-          validatedCount++;
-        }
-      } else if (!r.success && r.error && !errorMessage) {
-        errorMessage = r.error.substring(0, 100);
-        if (r.error.length > 100) errorMessage += '...';
-        errorCategory = categorizeError(r.error);
-      }
-    }
-
-    return {
-      assetsExported,
-      validatedCount,
-      exportedConfigs,
-      failedCount: report.failureCount,
-      errorMessage,
-      errorCategory,
-    };
-  } catch {
+    content = fs.readFileSync(reportPath, 'utf-8');
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    core.warning(`Failed to read report file ${reportPath}: ${msg}`);
     return null;
   }
+
+  let report: Record<string, unknown>;
+  try {
+    report = JSON.parse(content) as Record<string, unknown>;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    core.warning(`Failed to parse report JSON from ${reportPath}: ${msg}`);
+    return null;
+  }
+
+  // Discriminate batch vs single export report by structure
+  if ('results' in report && Array.isArray(report.results)) {
+    return parseBatchReport(report as unknown as BatchReport);
+  }
+  if ('command' in report && typeof report.command === 'string' && report.stats != null) {
+    return parseSingleReport(report as unknown as ExportReport);
+  }
+
+  core.warning(
+    `Unknown report format in ${reportPath}: expected 'results' (batch) or 'command' (single export) key`
+  );
+  return null;
+}
+
+function parseBatchReport(report: BatchReport): ExFigMetrics {
+  let assetsExported = 0;
+  let validatedCount = 0;
+  let exportedConfigs = 0;
+  let errorMessage = '';
+  let errorCategory: ErrorCategory | '' = '';
+
+  for (const r of report.results) {
+    if (r.success && r.stats) {
+      const total = r.stats.colors + r.stats.icons + r.stats.images + r.stats.typography;
+      if (total > 0) {
+        assetsExported += total;
+        exportedConfigs++;
+      } else {
+        validatedCount++;
+      }
+    } else if (!r.success && r.error && !errorMessage) {
+      errorMessage = r.error.substring(0, 100);
+      if (r.error.length > 100) errorMessage += '...';
+      errorCategory = categorizeError(r.error);
+    }
+  }
+
+  return {
+    assetsExported,
+    validatedCount,
+    exportedConfigs,
+    failedCount: report.failureCount,
+    errorMessage,
+    errorCategory,
+  };
+}
+
+function parseSingleReport(report: ExportReport): ExFigMetrics {
+  const stats = report.stats ?? { colors: 0, icons: 0, images: 0, typography: 0 };
+  const assetsExported = stats.colors + stats.icons + stats.images + stats.typography;
+
+  let errorMessage = '';
+  let errorCategory: ErrorCategory | '' = '';
+
+  if (!report.success && report.error) {
+    errorMessage = report.error.substring(0, 100);
+    if (report.error.length > 100) errorMessage += '...';
+    errorCategory = categorizeError(report.error);
+  }
+
+  return {
+    assetsExported,
+    validatedCount: report.success && assetsExported === 0 ? 1 : 0,
+    exportedConfigs: assetsExported > 0 ? 1 : 0,
+    failedCount: report.success ? 0 : 1,
+    errorMessage,
+    errorCategory,
+  };
 }
 
 export function categorizeError(error: string): ErrorCategory {
@@ -849,19 +909,20 @@ async function run(): Promise<void> {
     const result = await runExFig(binaryPath, args, inputs.figmaToken);
     outputs.duration = `${result.durationSeconds}s`;
 
-    // Parse output: prefer structured report for batch, fallback to regex
+    // Parse output: prefer structured report when available, fallback to regex
     let metrics: ExFigMetrics;
-    if (inputs.command === 'batch' && reportPath) {
+    if (REPORT_COMMANDS.includes(inputs.command) && reportPath) {
       const reportMetrics = parseReportFile(reportPath);
       if (reportMetrics) {
         metrics = reportMetrics;
         try {
           outputs.reportJson = fs.readFileSync(reportPath, 'utf-8');
-        } catch {
-          // Non-fatal: report file read failed after successful parse
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          core.warning(`Failed to read report file for output: ${msg}`);
         }
       } else {
-        core.warning('Report file not found, falling back to output parsing');
+        core.warning('Failed to parse report file, falling back to output parsing');
         metrics = parseExFigOutput(result.stdout + result.stderr);
       }
     } else {

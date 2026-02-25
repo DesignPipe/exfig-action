@@ -93,7 +93,7 @@ export interface ActionOutputs {
   errorCategory: ErrorCategory | '';
   /** First error message from failed config */
   errorMessage: string;
-  /** Raw JSON report content (batch mode only) */
+  /** Raw JSON report content */
   reportJson: string;
 }
 
@@ -231,4 +231,41 @@ export interface BatchConfigStats {
   icons: number;
   images: number;
   typography: number;
+}
+
+/** Single-export commands that produce ExportReport */
+export type SingleExportCommand = 'colors' | 'icons' | 'images' | 'typography';
+
+/**
+ * Structured export report from ExFig CLI (--report flag, single commands)
+ * Mirrors ExportReport struct for colors/icons/images/typography commands
+ */
+export interface ExportReport {
+  version: number;
+  command: SingleExportCommand;
+  config: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  success: boolean;
+  error: string | null;
+  stats: BatchConfigStats;
+  warnings: string[];
+  manifest: AssetManifest | null;
+}
+
+/**
+ * Asset manifest from ExFig CLI export.
+ * Currently deserialized but not consumed; reserved for future
+ * changed-files output without requiring a git working tree.
+ */
+export interface AssetManifest {
+  outputDirectory: string;
+  files: AssetManifestFile[];
+  deleted: string[];
+}
+
+export interface AssetManifestFile {
+  path: string;
+  assetType: string;
 }

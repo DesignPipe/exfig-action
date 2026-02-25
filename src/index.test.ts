@@ -377,11 +377,34 @@ describe('buildCommand', () => {
     expect(reportPath).toBe('/tmp/custom-report.json');
   });
 
-  it('should not inject --report for non-batch commands', () => {
+  it('should use custom report path for single export commands', () => {
     mockExistsSync.mockReturnValue(true);
-    const { args, reportPath } = buildCommand({ ...baseInputs, command: 'colors' });
-    expect(args).not.toContain('--report');
-    expect(reportPath).toBe('');
+    const { args, reportPath } = buildCommand({
+      ...baseInputs,
+      command: 'icons',
+      report: '/tmp/my-report.json',
+    });
+    expect(args).toContain('--report');
+    expect(args).toContain('/tmp/my-report.json');
+    expect(reportPath).toBe('/tmp/my-report.json');
+  });
+
+  it('should not inject --report for non-export commands', () => {
+    mockExistsSync.mockReturnValue(true);
+    for (const cmd of ['fetch', 'download'] as const) {
+      const { args, reportPath } = buildCommand({ ...baseInputs, command: cmd });
+      expect(args).not.toContain('--report');
+      expect(reportPath).toBe('');
+    }
+  });
+
+  it('should auto-inject --report for all export commands', () => {
+    mockExistsSync.mockReturnValue(true);
+    for (const cmd of ['colors', 'icons', 'images', 'typography'] as const) {
+      const { args, reportPath } = buildCommand({ ...baseInputs, command: cmd });
+      expect(args).toContain('--report');
+      expect(reportPath).toContain('exfig-report.json');
+    }
   });
 });
 
@@ -698,6 +721,184 @@ describe('parseReportFile', () => {
     expect(metrics).not.toBeNull();
     expect(metrics!.errorMessage.length).toBe(103); // 100 + '...'
     expect(metrics!.errorMessage.endsWith('...')).toBe(true);
+  });
+
+  it('should parse single export report with assets', () => {
+    const reportPath = writeReport('test-single-report-1.json', {
+      version: 1,
+      command: 'colors',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:10Z',
+      duration: 10,
+      success: true,
+      error: null,
+      stats: { colors: 24, icons: 0, images: 0, typography: 0 },
+      warnings: [],
+      manifest: null,
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.assetsExported).toBe(24);
+    expect(metrics!.exportedConfigs).toBe(1);
+    expect(metrics!.validatedCount).toBe(0);
+    expect(metrics!.failedCount).toBe(0);
+    expect(metrics!.errorMessage).toBe('');
+  });
+
+  it('should parse single export report with error', () => {
+    const reportPath = writeReport('test-single-report-2.json', {
+      version: 1,
+      command: 'icons',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:05Z',
+      duration: 5,
+      success: false,
+      error: 'Rate limit exceeded',
+      stats: { colors: 0, icons: 0, images: 0, typography: 0 },
+      warnings: [],
+      manifest: null,
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.failedCount).toBe(1);
+    expect(metrics!.assetsExported).toBe(0);
+    expect(metrics!.errorMessage).toBe('Rate limit exceeded');
+    expect(metrics!.errorCategory).toBe('RATE_LIMIT');
+  });
+
+  it('should count single export report with zero stats as validated', () => {
+    const reportPath = writeReport('test-single-report-3.json', {
+      version: 1,
+      command: 'typography',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:03Z',
+      duration: 3,
+      success: true,
+      error: null,
+      stats: { colors: 0, icons: 0, images: 0, typography: 0 },
+      warnings: [],
+      manifest: null,
+    });
+
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+
+    expect(metrics).not.toBeNull();
+    expect(metrics!.validatedCount).toBe(1);
+    expect(metrics!.exportedConfigs).toBe(0);
+    expect(metrics!.assetsExported).toBe(0);
+    expect(metrics!.failedCount).toBe(0);
+  });
+
+  it('should return null for JSON with unrecognized structure', () => {
+    const reportPath = writeReport('test-unrecognized.json', {
+      version: 2,
+      someNewField: 'data',
+    });
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).toBeNull();
+  });
+
+  it('should prefer batch parsing when report has both results and command', () => {
+    const reportPath = writeReport('test-ambiguous.json', {
+      command: 'batch',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:05Z',
+      duration: 5,
+      totalConfigs: 1,
+      successCount: 1,
+      failureCount: 0,
+      results: [
+        {
+          name: 'colors',
+          path: 'exfig-colors.pkl',
+          success: true,
+          error: null,
+          stats: { colors: 10, icons: 0, images: 0, typography: 0 },
+        },
+      ],
+    });
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).not.toBeNull();
+    expect(metrics!.assetsExported).toBe(10);
+    expect(metrics!.exportedConfigs).toBe(1);
+  });
+
+  it('should truncate long error messages in single export report', () => {
+    const longError = 'B'.repeat(150);
+    const reportPath = writeReport('test-single-long-error.json', {
+      version: 1,
+      command: 'colors',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:05Z',
+      duration: 5,
+      success: false,
+      error: longError,
+      stats: { colors: 0, icons: 0, images: 0, typography: 0 },
+      warnings: [],
+      manifest: null,
+    });
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).not.toBeNull();
+    expect(metrics!.errorMessage.length).toBe(103); // 100 + '...'
+    expect(metrics!.errorMessage.endsWith('...')).toBe(true);
+  });
+
+  it('should handle single export failure with null error', () => {
+    const reportPath = writeReport('test-single-null-error.json', {
+      version: 1,
+      command: 'images',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:01Z',
+      duration: 1,
+      success: false,
+      error: null,
+      stats: { colors: 0, icons: 0, images: 0, typography: 0 },
+      warnings: [],
+      manifest: null,
+    });
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).not.toBeNull();
+    expect(metrics!.failedCount).toBe(1);
+    expect(metrics!.errorMessage).toBe('');
+    expect(metrics!.errorCategory).toBe('');
+    expect(metrics!.validatedCount).toBe(0);
+  });
+
+  it('should sum all stat fields in single export report', () => {
+    const reportPath = writeReport('test-single-multi-stats.json', {
+      version: 1,
+      command: 'icons',
+      config: 'exfig.pkl',
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:00:10Z',
+      duration: 10,
+      success: true,
+      error: null,
+      stats: { colors: 5, icons: 10, images: 3, typography: 2 },
+      warnings: [],
+      manifest: null,
+    });
+    mockExistsSync.mockImplementation((p: string) => p === reportPath);
+    const metrics = parseReportFile(reportPath);
+    expect(metrics).not.toBeNull();
+    expect(metrics!.assetsExported).toBe(20); // 5+10+3+2
+    expect(metrics!.exportedConfigs).toBe(1);
   });
 });
 
