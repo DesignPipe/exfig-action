@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0] - 2026-02-25
+
+### Other
+
+- Merge pull request #3 from alexey1312/feat/report-single-export
+
+feat(report): support --report for single export commands by @alexey1312 in [#3](https://github.com/alexey1312/exfig-action/pull/3)
+
+
 ## [2.0.3] - 2026-02-10
 
 ### Features
