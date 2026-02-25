@@ -40867,21 +40867,33 @@ function parseExFigOutput(output) {
 function parseReportFile(reportPath) {
     if (!fs.existsSync(reportPath))
         return null;
+    let content;
     try {
-        const content = fs.readFileSync(reportPath, 'utf-8');
-        const report = JSON.parse(content);
-        // Discriminate batch vs single export report by structure
-        if ('results' in report) {
-            return parseBatchReport(report);
-        }
-        else if ('command' in report) {
-            return parseSingleReport(report);
-        }
+        content = fs.readFileSync(reportPath, 'utf-8');
+    }
+    catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        core.warning(`Failed to read report file ${reportPath}: ${msg}`);
         return null;
     }
-    catch {
+    let report;
+    try {
+        report = JSON.parse(content);
+    }
+    catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        core.warning(`Failed to parse report JSON from ${reportPath}: ${msg}`);
         return null;
     }
+    // Discriminate batch vs single export report by structure
+    if ('results' in report && Array.isArray(report.results)) {
+        return parseBatchReport(report);
+    }
+    if ('command' in report && typeof report.command === 'string' && report.stats != null) {
+        return parseSingleReport(report);
+    }
+    core.warning(`Unknown report format in ${reportPath}: expected 'results' (batch) or 'command' (single export) key`);
+    return null;
 }
 function parseBatchReport(report) {
     let assetsExported = 0;
@@ -40917,7 +40929,8 @@ function parseBatchReport(report) {
     };
 }
 function parseSingleReport(report) {
-    const assetsExported = report.stats.colors + report.stats.icons + report.stats.images + report.stats.typography;
+    const stats = report.stats ?? { colors: 0, icons: 0, images: 0, typography: 0 };
+    const assetsExported = stats.colors + stats.icons + stats.images + stats.typography;
     let errorMessage = '';
     let errorCategory = '';
     if (!report.success && report.error) {
@@ -41135,12 +41148,13 @@ async function run() {
                 try {
                     outputs.reportJson = fs.readFileSync(reportPath, 'utf-8');
                 }
-                catch {
-                    // Non-fatal: report file read failed after successful parse
+                catch (error) {
+                    const msg = error instanceof Error ? error.message : String(error);
+                    core.warning(`Failed to read report file for output: ${msg}`);
                 }
             }
             else {
-                core.warning('Report file not found, falling back to output parsing');
+                core.warning('Failed to parse report file, falling back to output parsing');
                 metrics = parseExFigOutput(result.stdout + result.stderr);
             }
         }
