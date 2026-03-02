@@ -2,11 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.1.1] - 2026-03-02
 
 ### Bug Fixes
 
-- **pkl**: Bump pkl version from 0.30.2 to 0.31.0
+- **pkl**: Bump pkl version from 0.30.2 to 0.31.0 by @alexey1312
 
 
 ## [2.1.0] - 2026-02-25
