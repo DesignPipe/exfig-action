@@ -40404,7 +40404,7 @@ const VALID_COMMANDS = [
 ];
 const EXFIG_REPO = 'alexey1312/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
-const PKL_VERSION = '0.30.2';
+const PKL_VERSION = '0.31.0';
 /** Commands that support --report for structured JSON output */
 const REPORT_COMMANDS = [
     'batch',
