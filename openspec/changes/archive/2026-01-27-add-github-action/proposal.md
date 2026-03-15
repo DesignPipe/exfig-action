@@ -7,7 +7,7 @@ command construction. A dedicated GitHub Action would simplify integration and e
 
 ## What Changes
 
-- Create new repository `alexey1312/exfig-action` with composite GitHub Action
+- Create new repository `DesignPipe/exfig-action` with composite GitHub Action
 - Publish to GitHub Marketplace
 - Support all ExFig commands: colors, icons, images, typography, batch, fetch, download
 - Built-in cache management via actions/cache@v4

@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/alexey1312/exfig-action.git
+git clone https://github.com/DesignPipe/exfig-action.git
 cd exfig-action
 npm install
 ```

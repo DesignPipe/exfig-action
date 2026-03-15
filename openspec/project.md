@@ -52,10 +52,10 @@ exports (colors, icons, images, typography) to iOS, Android, and Flutter project
 
 - Requires `FIGMA_PERSONAL_TOKEN` passed as secret
 - macOS and Linux only (Windows not supported in v1)
-- ExFig releases must exist on alexey1312/exfig
+- ExFig releases must exist on DesignPipe/exfig
 
 ## External Dependencies
 
-- ExFig CLI binary releases: `github.com/alexey1312/exfig/releases`
+- ExFig CLI binary releases: `github.com/DesignPipe/exfig/releases`
 - actions/cache@v4 for caching
 - GitHub REST API for latest version resolution

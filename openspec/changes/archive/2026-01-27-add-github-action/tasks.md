@@ -1,6 +1,6 @@
 ## 1. Repository Setup
 
-- [x] 1.1 Create `alexey1312/exfig-action` repository
+- [x] 1.1 Create `DesignPipe/exfig-action` repository
 - [x] 1.2 Add MIT LICENSE
 - [x] 1.3 Create README.md with usage examples
 - [x] 1.4 Add CHANGELOG.md

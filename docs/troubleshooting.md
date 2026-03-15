@@ -35,7 +35,7 @@ Common issues and solutions when using ExFig Action.
 1. Reduce the rate limit:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     rate_limit: 5  # Reduce from default 10
 ```
@@ -43,7 +43,7 @@ Common issues and solutions when using ExFig Action.
 2. Increase max retries:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     max_retries: 6  # Increase from default 3
 ```
@@ -51,7 +51,7 @@ Common issues and solutions when using ExFig Action.
 3. Enable caching to reduce API calls:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     cache: true
 ```
@@ -67,7 +67,7 @@ Common issues and solutions when using ExFig Action.
 1. Pin a specific version instead of using `latest`:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     version: 'v1.2.0'
 ```
@@ -83,7 +83,7 @@ Common issues and solutions when using ExFig Action.
 1. Enable verbose logging to debug:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     verbose: true
 ```
@@ -103,7 +103,7 @@ Common issues and solutions when using ExFig Action.
 1. Check cache key prefix is consistent:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     cache: true
     cache_key_prefix: exfig-icons  # Use consistent prefix
@@ -112,7 +112,7 @@ Common issues and solutions when using ExFig Action.
 2. Verify cache path is accessible:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     cache: true
     cache_path: '.exfig-cache.json'  # Default location
@@ -140,7 +140,7 @@ If caches are still not being restored:
 1. Create the config file:
 
 ```pkl
-amends "package://github.com/alexey1312/ExFig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
+amends "package://github.com/DesignPipe/exfig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
 
 figma {
   fileId = "YOUR_FILE_KEY"
@@ -157,7 +157,7 @@ icons {
 2. Or specify a different path:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     config: 'config/exfig.pkl'
 ```
@@ -201,7 +201,7 @@ Windows is not supported.
 ### Enable Verbose Logging
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     verbose: true
 ```
@@ -221,7 +221,7 @@ To reproduce the issue locally:
 
 ```bash
 # Download ExFig
-curl -L -o exfig.zip https://github.com/alexey1312/exfig/releases/latest/download/exfig-macos.zip
+curl -L -o exfig.zip https://github.com/DesignPipe/exfig/releases/latest/download/exfig-macos.zip
 unzip exfig.zip
 chmod +x exfig
 
@@ -234,8 +234,8 @@ export FIGMA_PERSONAL_TOKEN="your-token"
 
 If you can't resolve the issue:
 
-1. Check [ExFig documentation](https://github.com/alexey1312/exfig)
-2. Search [existing issues](https://github.com/alexey1312/exfig-action/issues)
+1. Check [ExFig documentation](https://github.com/DesignPipe/exfig)
+2. Search [existing issues](https://github.com/DesignPipe/exfig-action/issues)
 3. Open a new issue with:
    - Workflow file (redact secrets)
    - Error message

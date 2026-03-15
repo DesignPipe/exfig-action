@@ -1,11 +1,11 @@
 # ExFig Action
 
-A GitHub Action for exporting Figma assets using [ExFig](https://github.com/alexey1312/exfig) CLI. Export colors, icons, images, and typography from Figma to your codebase with built-in caching.
+A GitHub Action for exporting Figma assets using [ExFig](https://github.com/DesignPipe/exfig) CLI. Export colors, icons, images, and typography from Figma to your codebase with built-in caching.
 
 ## Usage
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -74,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alexey1312/exfig-action@v2
+      - uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -99,7 +99,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Export colors
-        uses: alexey1312/exfig-action@v2
+        uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: colors
@@ -107,7 +107,7 @@ jobs:
           cache_key_prefix: exfig-colors
 
       - name: Export icons
-        uses: alexey1312/exfig-action@v2
+        uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -115,7 +115,7 @@ jobs:
           cache_key_prefix: exfig-icons
 
       - name: Export typography
-        uses: alexey1312/exfig-action@v2
+        uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: typography
@@ -126,7 +126,7 @@ jobs:
 ### Filter Specific Assets
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -137,7 +137,7 @@ jobs:
 ### Pin ExFig Version
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -149,7 +149,7 @@ jobs:
 Pass additional flags directly to ExFig CLI:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -161,7 +161,7 @@ Pass additional flags directly to ExFig CLI:
 Export multiple configs with a structured JSON report:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   id: exfig
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
@@ -185,7 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alexey1312/exfig-action@v2
+      - uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons
@@ -204,7 +204,7 @@ The ExFig binary is automatically cached per OS and version to avoid re-download
 When `cache: true`, the action uses ExFig's built-in cache to enable incremental exports. Only changed assets are re-exported, significantly reducing Figma API calls and export time.
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -220,7 +220,7 @@ The cache is saved even on failure to support checkpoint resume for large export
 For better performance with large asset libraries:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -238,7 +238,7 @@ For better performance with large asset libraries:
 Create an `exfig.pkl` in your repository root:
 
 ```pkl
-amends "package://github.com/alexey1312/ExFig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
+amends "package://github.com/DesignPipe/exfig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
 
 figma {
   fileId = "YOUR_FIGMA_FILE_KEY"
@@ -259,14 +259,14 @@ colors {
 }
 ```
 
-See [ExFig documentation](https://github.com/alexey1312/exfig) for full configuration options.
+See [ExFig documentation](https://github.com/DesignPipe/exfig) for full configuration options.
 
 ## Slack Notifications
 
 Send notifications to Slack when exports complete or fail:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: batch
@@ -295,7 +295,7 @@ Send notifications to Slack when exports complete or fail:
 Override default notification templates with your own Slack Block Kit JSON:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -345,7 +345,7 @@ Error: Rate limit exceeded
 Reduce `rate_limit` input or wait before retrying:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons
@@ -358,7 +358,7 @@ Reduce `rate_limit` input or wait before retrying:
 Ensure caching is enabled and the cache path is accessible:
 
 ```yaml
-- uses: alexey1312/exfig-action@v2
+- uses: DesignPipe/exfig-action@v2
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons

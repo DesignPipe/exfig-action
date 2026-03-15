@@ -22,7 +22,7 @@ jobs:
 
       - name: Export icons
         id: export
-        uses: alexey1312/exfig-action@v2
+        uses: DesignPipe/exfig-action@v2
         with:
           figma_token: ${{ secrets.FIGMA_TOKEN }}
           command: icons

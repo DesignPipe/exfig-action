@@ -73,7 +73,7 @@ patterns for complex GitHub Actions with multi-provider auth, MCP integration, a
 
 ### Decision 3: Binary Distribution via GitHub Releases
 
-**Choice:** Download from alexey1312/exfig releases
+**Choice:** Download from DesignPipe/exfig releases
 
 **Rationale:**
 
@@ -117,7 +117,7 @@ For users with manual ExFig workflows:
 ```yaml
 - name: Download ExFig
   run: |
-    curl -L -o exfig.zip https://github.com/alexey1312/exfig/releases/latest/...
+    curl -L -o exfig.zip https://github.com/DesignPipe/exfig/releases/latest/...
     unzip exfig.zip
 
 - uses: actions/cache/restore@v4
@@ -139,7 +139,7 @@ For users with manual ExFig workflows:
 **After:**
 
 ```yaml
-- uses: alexey1312/exfig-action@v1
+- uses: DesignPipe/exfig-action@v1
   with:
     figma_token: ${{ secrets.FIGMA_TOKEN }}
     command: icons

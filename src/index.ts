@@ -36,7 +36,7 @@ const VALID_COMMANDS: readonly ExFigCommand[] = [
   'download',
 ];
 
-const EXFIG_REPO = 'alexey1312/exfig';
+const EXFIG_REPO = 'DesignPipe/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
 const PKL_VERSION = '0.31.0';
 
