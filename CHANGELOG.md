@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.2] - 2026-03-15
+
+### Miscellaneous Tasks
+
+- Migrate to DesignPipe org by @alexey1312
+
+
 ## [2.1.1] - 2026-03-02
 
 ### Bug Fixes
@@ -15,7 +22,7 @@ All notable changes to this project will be documented in this file.
 
 - Merge pull request #3 from alexey1312/feat/report-single-export
 
-feat(report): support --report for single export commands by @alexey1312 in [#3](https://github.com/alexey1312/exfig-action/pull/3)
+feat(report): support --report for single export commands by @alexey1312 in [#3](https://github.com/DesignPipe/exfig-action/pull/3)
 
 
 ## [2.0.3] - 2026-02-10
@@ -95,7 +102,7 @@ feat(report): support --report for single export commands by @alexey1312 in [#3]
 
 - Merge pull request #1 from alexey1312/feature-ts
 
-feat(refactor): convert action to TypeScript, add ESLint & Jest by @alexey1312 in [#1](https://github.com/alexey1312/exfig-action/pull/1)
+feat(refactor): convert action to TypeScript, add ESLint & Jest by @alexey1312 in [#1](https://github.com/DesignPipe/exfig-action/pull/1)
 
 
 ### Refactor
