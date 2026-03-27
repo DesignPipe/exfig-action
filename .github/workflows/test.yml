@@ -23,7 +23,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -248,7 +248,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install and build
@@ -259,7 +259,7 @@ jobs:
           RUNNER_TEMP: ${{ runner.temp }}
           RUNNER_OS: ${{ runner.os }}
         run: |
-          PKL_VERSION="0.30.2"
+          PKL_VERSION="0.31.1"
           INSTALL_DIR="${RUNNER_TEMP}/exfig"
           mkdir -p "$INSTALL_DIR"
 

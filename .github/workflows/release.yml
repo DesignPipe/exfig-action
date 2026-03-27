@@ -23,7 +23,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update CHANGELOG.md
-        uses: orhun/git-cliff-action@v4.7.0
+        uses: orhun/git-cliff-action@v4.7.1
         with:
           config: cliff.toml
           args: --output CHANGELOG.md
@@ -49,7 +49,7 @@ jobs:
 
       - name: Generate release notes
         id: changelog
-        uses: orhun/git-cliff-action@v4.7.0
+        uses: orhun/git-cliff-action@v4.7.1
         with:
           config: cliff.toml
           args: --latest --strip header
@@ -57,7 +57,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2.5.0
+        uses: softprops/action-gh-release@v2.6.1
         with:
           body: ${{ steps.changelog.outputs.content }}
 

@@ -38,7 +38,7 @@ const VALID_COMMANDS: readonly ExFigCommand[] = [
 
 const EXFIG_REPO = 'DesignPipe/exfig';
 const EXFIG_BINARY_NAME = 'ExFig'; // Capital letters
-const PKL_VERSION = '0.31.0';
+const PKL_VERSION = '0.31.1';
 
 /** Commands that support --report for structured JSON output */
 const REPORT_COMMANDS: readonly ExFigCommand[] = [

@@ -20,5 +20,11 @@ module.exports = {
     }
   },
   moduleFileExtensions: ['ts', 'js', 'json'],
+  resolver: '<rootDir>/jest-resolver.js',
+  transformIgnorePatterns: ['node_modules/(?!@actions/)'],
+  transform: {
+    '^.+\\.ts$': 'ts-jest',
+    '^.+\\.js$': ['ts-jest', { useESM: false }]
+  },
   verbose: true
 };

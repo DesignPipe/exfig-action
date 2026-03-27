@@ -30,7 +30,7 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 
 **Key Files:**
 
-- `action.yml` - Action definition (inputs/outputs, runs: node20)
+- `action.yml` - Action definition (inputs/outputs, runs: node22)
 - `src/index.ts` - Main logic (~1050 lines)
 - `src/types.ts` - TypeScript interfaces
 - `dist/index.js` - Compiled bundle (committed)
@@ -38,7 +38,7 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 
 ## Development
 
-`./bin/mise` is self-contained bootstrap (no global install needed). It manages Node.js 20 and all tools.
+`./bin/mise` is self-contained bootstrap (no global install needed). It manages Node.js 22 and all tools.
 
 ```bash
 ./bin/mise run lint         # Format, lint and fix all files
@@ -53,7 +53,7 @@ Git hooks auto-configure via `hooks.enter` in mise.toml.
 
 ## Code Style
 
-- TypeScript strict mode, ESLint + Prettier via hk
+- TypeScript strict mode, ESLint (flat config `eslint.config.mjs`) + Prettier via hk
 - Use `@actions/exec` for subprocess execution
 - Conventional Commits: `<type>(<scope>): <description>`
 
@@ -63,7 +63,9 @@ Single Node.js process executes: validate inputs → resolve version → cache/d
 
 **Binary naming:** `ExFig` (capital letters), not `exfig`.
 
-**Pkl dependency:** ExFig v2 requires `pkl` CLI (Apple Pkl). Version pinned as `PKL_VERSION` in `src/index.ts`. Both binaries cached together in `installDir`.
+**Pkl dependency:** ExFig v2 requires `pkl` CLI (Apple Pkl). Version pinned as `PKL_VERSION` in `src/index.ts` **and** `.github/workflows/test.yml`. Update both when bumping. Both binaries cached together in `installDir`.
+
+**ESM gotcha:** `@actions/*` v3+ are ESM-only. Jest needs `jest-resolver.js` (custom resolver) to find them. `tsconfig.json` uses `module: ESNext` + `moduleResolution: bundler` for ncc compatibility.
 
 **Cache gotcha:** `saveCache([installDir])` captures entire directory. New binaries must be installed _before_ `saveCache()` call in `run()` — not inside `downloadBinary()`.
 
