@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.3] - 2026-03-27
+
+### Bug Fixes
+
+- **ci**: Add .npmrc with legacy-peer-deps for TypeScript 6 compatibility by @alexey1312
+
+
 ## [2.1.2] - 2026-03-15
 
 ### Miscellaneous Tasks
