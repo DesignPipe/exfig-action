@@ -28,7 +28,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/Desi
 | `concurrent_downloads` | CDN download parallelism (number of concurrent downloads)                              | No       | -                   |
 | `timeout`              | API timeout in seconds                                                                 | No       | -                   |
 | `fail_fast`            | Stop on first batch error                                                              | No       | `false`             |
-| `report`               | Path to write JSON report file (batch mode)                                            | No       | -                   |
+| `report`               | Path to write JSON report file                                                         | No       | -                   |
 | `rate_limit`           | Figma API rate limit (requests/second)                                                 | No       | `10`                |
 | `max_retries`          | Maximum retries for failed API requests                                                | No       | `3`                 |
 | `output_dir`           | Output directory for exported assets                                                   | No       | -                   |
@@ -53,7 +53,7 @@ A GitHub Action for exporting Figma assets using [ExFig](https://github.com/Desi
 | `exported_configs` | Number of configs that exported new assets            |
 | `error_category`   | Error category code (RATE_LIMIT, TIMEOUT, AUTH, etc.) |
 | `error_message`    | First error message from failed config (truncated)    |
-| `report_json`      | Raw JSON report content (batch mode only)             |
+| `report_json`      | Raw JSON report content (from `--report`)             |
 
 ## Examples
 
@@ -72,7 +72,7 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: DesignPipe/exfig-action@v2
         with:
@@ -96,7 +96,7 @@ jobs:
   export:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Export colors
         uses: DesignPipe/exfig-action@v2
@@ -183,7 +183,7 @@ jobs:
   export:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: DesignPipe/exfig-action@v2
         with:
@@ -238,7 +238,7 @@ For better performance with large asset libraries:
 Create an `exfig.pkl` in your repository root:
 
 ```pkl
-amends "package://github.com/DesignPipe/exfig/releases/download/v2.0.0/exfig@2.0.0#/ExFig.pkl"
+amends "package://github.com/DesignPipe/exfig/releases/download/v3.0.0/exfig@3.0.0#/ExFig.pkl"
 
 figma {
   fileId = "YOUR_FIGMA_FILE_KEY"
