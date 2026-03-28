@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.4] - 2026-03-28
+
+### Bug Fixes
+
+- **action**: Revert node22 to node20 runtime by @alexey1312
+
+
+### Documentation
+
+- Update README with current versions and report scope by @alexey1312
+
+
 ## [2.1.3] - 2026-03-27
 
 ### Bug Fixes
