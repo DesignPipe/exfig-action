@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-03-28
+
+### Features
+
+- **action**: Upgrade to node24 runtime by @alexey1312
+
+
 ## [2.1.4] - 2026-03-28
 
 ### Bug Fixes
