@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-03-31
+
+### Bug Fixes
+
+- **lint**: Improve error handling, type safety, and Slack notification paths by @alexey1312
+
+
 ## [3.1.0] - 2026-03-31
 
 ### Features
