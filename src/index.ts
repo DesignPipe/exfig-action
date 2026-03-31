@@ -20,6 +20,7 @@ import type {
   GitHubContext,
   BatchReport,
   ExportReport,
+  LintReport,
 } from './types';
 
 // =============================================================================
@@ -34,6 +35,7 @@ const VALID_COMMANDS: readonly ExFigCommand[] = [
   'batch',
   'fetch',
   'download',
+  'lint',
 ];
 
 const EXFIG_REPO = 'DesignPipe/exfig';
@@ -78,6 +80,8 @@ function getInputs(): ActionInputs {
     outputDir: core.getInput('output_dir'),
     verbose: core.getBooleanInput('verbose'),
     extraArgs: core.getInput('extra_args'),
+    lintRules: core.getInput('lint_rules'),
+    lintSeverity: core.getInput('lint_severity') || 'info',
     slackWebhook: core.getInput('slack_webhook'),
     slackMention: core.getInput('slack_mention'),
     slackTemplates: core.getInput('slack_templates'),
@@ -479,6 +483,17 @@ export function buildCommand(inputs: ActionInputs): {
     args.push('--fail-fast');
   }
 
+  // Lint-specific flags
+  if (inputs.command === 'lint') {
+    args.push('--format', 'json');
+    if (inputs.lintRules) {
+      args.push('--rules', inputs.lintRules);
+    }
+    if (inputs.lintSeverity) {
+      args.push('--severity', inputs.lintSeverity);
+    }
+  }
+
   // Add rate limit and retries
   args.push('--rate-limit', inputs.rateLimit.toString());
   args.push('--max-retries', inputs.maxRetries.toString());
@@ -686,6 +701,18 @@ function parseSingleReport(report: ExportReport): ExFigMetrics {
   };
 }
 
+function parseLintOutput(stdout: string): LintReport | null {
+  try {
+    const report = JSON.parse(stdout) as LintReport;
+    if (typeof report.diagnosticsCount === 'number') {
+      return report;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export function categorizeError(error: string): ErrorCategory {
   const errorLower = error.toLowerCase();
 
@@ -857,6 +884,8 @@ async function run(): Promise<void> {
     errorCategory: '',
     errorMessage: '',
     reportJson: '',
+    lintErrors: 0,
+    lintWarnings: 0,
   };
 
   let inputs: ActionInputs | null = null;
@@ -908,6 +937,16 @@ async function run(): Promise<void> {
 
     const result = await runExFig(binaryPath, args, inputs.figmaToken);
     outputs.duration = `${result.durationSeconds}s`;
+
+    // Parse lint JSON output
+    if (inputs.command === 'lint') {
+      const lintResult = parseLintOutput(result.stdout);
+      if (lintResult) {
+        outputs.lintErrors = lintResult.errorsCount;
+        outputs.lintWarnings = lintResult.warningsCount;
+        outputs.reportJson = result.stdout;
+      }
+    }
 
     // Parse output: prefer structured report when available, fallback to regex
     let metrics: ExFigMetrics;
@@ -1015,6 +1054,8 @@ function setOutputs(outputs: ActionOutputs): void {
   core.setOutput('error_category', outputs.errorCategory);
   core.setOutput('error_message', outputs.errorMessage);
   core.setOutput('report_json', outputs.reportJson);
+  core.setOutput('lint_errors', outputs.lintErrors ?? 0);
+  core.setOutput('lint_warnings', outputs.lintWarnings ?? 0);
 }
 
 async function handleSlackNotification(
@@ -1058,7 +1099,14 @@ async function handleSlackNotification(
   let templateName: string;
 
   if (outputs.exitCode === 0) {
-    if (outputs.validatedCount > 0 && outputs.assetsExported === 0) {
+    if (inputs.command === 'lint') {
+      color = '#36a64f';
+      icon = '\u2705';
+      title = 'Lint passed';
+      subtitle =
+        outputs.lintWarnings > 0 ? `${outputs.lintWarnings} warning(s)` : 'All checks passed';
+      templateName = 'success.json';
+    } else if (outputs.validatedCount > 0 && outputs.assetsExported === 0) {
       color = '#36a64f';
       icon = '\uD83D\uDCA8'; // dash
       title = 'No changes detected';
@@ -1084,6 +1132,9 @@ async function handleSlackNotification(
       } else {
         subtitle = '[CRASH] Process killed by signal - check workflow logs';
       }
+    } else if (inputs.command === 'lint' && outputs.lintErrors > 0) {
+      title = 'Lint failed';
+      subtitle = `${outputs.lintErrors} error(s), ${outputs.lintWarnings} warning(s)`;
     } else if (outputs.failedCount > 0) {
       title = 'Export failed';
       if (outputs.errorMessage) {

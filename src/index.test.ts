@@ -253,6 +253,8 @@ describe('buildCommand', () => {
     outputDir: '',
     verbose: false,
     extraArgs: '',
+    lintRules: '',
+    lintSeverity: 'info',
     slackWebhook: '',
     slackMention: '',
     slackTemplates: '',
@@ -398,6 +400,30 @@ describe('buildCommand', () => {
     }
   });
 
+  it('should add lint-specific flags for lint command', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args } = buildCommand({
+      ...baseInputs,
+      command: 'lint',
+      lintRules: 'naming-convention,deleted-variables',
+      lintSeverity: 'error',
+    });
+    expect(args).toContain('lint');
+    expect(args).toContain('--format');
+    expect(args).toContain('json');
+    expect(args).toContain('--rules');
+    expect(args).toContain('naming-convention,deleted-variables');
+    expect(args).toContain('--severity');
+    expect(args).toContain('error');
+  });
+
+  it('should not inject --report for lint command', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args, reportPath } = buildCommand({ ...baseInputs, command: 'lint' });
+    expect(args).not.toContain('--report');
+    expect(reportPath).toBe('');
+  });
+
   it('should auto-inject --report for all export commands', () => {
     mockExistsSync.mockReturnValue(true);
     for (const cmd of ['colors', 'icons', 'images', 'typography'] as const) {
@@ -417,6 +443,7 @@ describe('isValidCommand', () => {
     expect(isValidCommand('batch')).toBe(true);
     expect(isValidCommand('fetch')).toBe(true);
     expect(isValidCommand('download')).toBe(true);
+    expect(isValidCommand('lint')).toBe(true);
   });
 
   it('should return false for invalid commands', () => {

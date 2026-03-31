@@ -11,7 +11,8 @@ export type ExFigCommand =
   | 'typography'
   | 'batch'
   | 'fetch'
-  | 'download';
+  | 'download'
+  | 'lint';
 
 /** Supported platforms (no Windows support) */
 export type Platform = 'darwin' | 'linux';
@@ -59,6 +60,10 @@ export interface ActionInputs {
   verbose: boolean;
   /** Additional CLI arguments */
   extraArgs: string;
+  /** Comma-separated lint rule IDs (lint command only) */
+  lintRules: string;
+  /** Minimum lint severity (lint command only) */
+  lintSeverity: string;
   /** Slack Incoming Webhook URL */
   slackWebhook: string;
   /** User/group to mention on failure */
@@ -95,6 +100,10 @@ export interface ActionOutputs {
   errorMessage: string;
   /** Raw JSON report content */
   reportJson: string;
+  /** Number of lint errors (lint command only) */
+  lintErrors: number;
+  /** Number of lint warnings (lint command only) */
+  lintWarnings: number;
 }
 
 /** Error categories for Slack notifications */
@@ -268,4 +277,24 @@ export interface AssetManifest {
 export interface AssetManifestFile {
   path: string;
   assetType: string;
+}
+
+/**
+ * Lint report from ExFig CLI (--format json)
+ */
+export interface LintReport {
+  diagnosticsCount: number;
+  errorsCount: number;
+  warningsCount: number;
+  diagnostics: LintDiagnostic[];
+}
+
+export interface LintDiagnostic {
+  ruleId: string;
+  ruleName: string;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  componentName: string | null;
+  nodeId: string | null;
+  suggestion: string | null;
 }

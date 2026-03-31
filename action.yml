@@ -10,7 +10,7 @@ inputs:
     description: 'Figma Personal Access Token'
     required: true
   command:
-    description: 'ExFig command to run: colors, icons, images, typography, batch, fetch, download'
+    description: 'ExFig command to run: colors, icons, images, typography, batch, fetch, download, lint'
     required: true
   config:
     description: 'Path to exfig.pkl config file (comma-separated for batch)'
@@ -81,6 +81,14 @@ inputs:
     description: 'User/group to mention on failure (U123, S456, @channel, or full Slack format)'
     required: false
     default: ''
+  lint_rules:
+    description: 'Comma-separated lint rule IDs to run (lint command only)'
+    required: false
+    default: ''
+  lint_severity:
+    description: 'Minimum lint severity: error, warning, or info (lint command only)'
+    required: false
+    default: 'info'
   slack_templates:
     description: 'Path to custom Slack templates directory (overrides defaults)'
     required: false
@@ -111,6 +119,10 @@ outputs:
     description: 'First error message from failed config (truncated to 100 chars)'
   report_json:
     description: 'Raw JSON report content (from --report)'
+  lint_errors:
+    description: 'Number of lint errors found (lint command only)'
+  lint_warnings:
+    description: 'Number of lint warnings found (lint command only)'
 
 runs:
   using: 'node24'
