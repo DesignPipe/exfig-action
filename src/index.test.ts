@@ -1,6 +1,7 @@
 import {
   parseExFigOutput,
   parseReportFile,
+  parseLintOutput,
   categorizeError,
   detectCrash,
   formatSlackMention,
@@ -101,6 +102,72 @@ Batch complete: 1 succeeded, 1 failed
     expect(result.failedCount).toBe(0);
     expect(result.errorMessage).toBe('');
     expect(result.errorCategory).toBe('');
+  });
+});
+
+describe('parseLintOutput', () => {
+  it('should parse valid lint JSON', () => {
+    const json = JSON.stringify({
+      diagnosticsCount: 2,
+      errorsCount: 1,
+      warningsCount: 1,
+      diagnostics: [
+        {
+          ruleId: 'naming-convention',
+          ruleName: 'Naming Convention',
+          severity: 'error',
+          message: 'Bad name',
+          componentName: 'Button',
+          nodeId: '1:2',
+          suggestion: 'Rename it',
+        },
+        {
+          ruleId: 'deleted-variables',
+          ruleName: 'Deleted Variables',
+          severity: 'warning',
+          message: 'Var deleted',
+          componentName: null,
+          nodeId: null,
+          suggestion: null,
+        },
+      ],
+    });
+    const result = parseLintOutput(json);
+    expect(result).not.toBeNull();
+    expect(result!.errorsCount).toBe(1);
+    expect(result!.warningsCount).toBe(1);
+    expect(result!.diagnostics).toHaveLength(2);
+  });
+
+  it('should parse valid lint JSON with zero diagnostics', () => {
+    const json = JSON.stringify({
+      diagnosticsCount: 0,
+      errorsCount: 0,
+      warningsCount: 0,
+      diagnostics: [],
+    });
+    const result = parseLintOutput(json);
+    expect(result).not.toBeNull();
+    expect(result!.diagnosticsCount).toBe(0);
+    expect(result!.diagnostics).toHaveLength(0);
+  });
+
+  it('should return null for missing diagnosticsCount', () => {
+    const json = JSON.stringify({ errorsCount: 0, warningsCount: 0, diagnostics: [] });
+    expect(parseLintOutput(json)).toBeNull();
+  });
+
+  it('should return null for missing diagnostics array', () => {
+    const json = JSON.stringify({ diagnosticsCount: 0, errorsCount: 0, warningsCount: 0 });
+    expect(parseLintOutput(json)).toBeNull();
+  });
+
+  it('should return null for invalid JSON', () => {
+    expect(parseLintOutput('not json at all')).toBeNull();
+  });
+
+  it('should return null for empty string', () => {
+    expect(parseLintOutput('')).toBeNull();
   });
 });
 
@@ -415,6 +482,16 @@ describe('buildCommand', () => {
     expect(args).toContain('naming-convention,deleted-variables');
     expect(args).toContain('--severity');
     expect(args).toContain('error');
+  });
+
+  it('should add --format and --severity but not --rules for lint with defaults', () => {
+    mockExistsSync.mockReturnValue(true);
+    const { args } = buildCommand({ ...baseInputs, command: 'lint' });
+    expect(args).toContain('--format');
+    expect(args).toContain('json');
+    expect(args).toContain('--severity');
+    expect(args).toContain('info');
+    expect(args).not.toContain('--rules');
   });
 
   it('should not inject --report for lint command', () => {

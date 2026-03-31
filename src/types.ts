@@ -14,6 +14,9 @@ export type ExFigCommand =
   | 'download'
   | 'lint';
 
+/** Valid lint severity levels */
+export type LintSeverity = 'error' | 'warning' | 'info';
+
 /** Supported platforms (no Windows support) */
 export type Platform = 'darwin' | 'linux';
 
@@ -63,7 +66,7 @@ export interface ActionInputs {
   /** Comma-separated lint rule IDs (lint command only) */
   lintRules: string;
   /** Minimum lint severity (lint command only) */
-  lintSeverity: string;
+  lintSeverity: LintSeverity;
   /** Slack Incoming Webhook URL */
   slackWebhook: string;
   /** User/group to mention on failure */

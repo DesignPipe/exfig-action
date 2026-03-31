@@ -30,7 +30,7 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 
 **Key Files:**
 
-- `action.yml` - Action definition (inputs/outputs, runs: node22)
+- `action.yml` - Action definition (inputs/outputs, runs: node24)
 - `src/index.ts` - Main logic (~1050 lines)
 - `src/types.ts` - TypeScript interfaces
 - `dist/index.js` - Compiled bundle (committed)
@@ -71,9 +71,11 @@ Single Node.js process executes: validate inputs → resolve version → cache/d
 
 **Slack notification:** Uses raw `https.request` (no libraries). All errors are non-fatal (`resolve()`, never `reject()`). Always `res.resume()` response body to avoid holding the socket open.
 
+**New command checklist:** When adding a new ExFig command: (1) add to `ExFigCommand` type + `VALID_COMMANDS`, (2) add command-specific parsing in `run()`, (3) skip `parseExFigOutput` regex if output format differs, (4) add both success AND failure paths in `handleSlackNotification`, (5) export parser function and add tests.
+
 ## Testing
 
-- Unit tests: `parseExFigOutput`, `categorizeError`, `formatSlackMention`, `buildCommand`, `getPklBinaryName`, `detectCrash`, `parseReportFile`
+- Unit tests: `parseExFigOutput`, `parseLintOutput`, `categorizeError`, `formatSlackMention`, `buildCommand`, `getPklBinaryName`, `detectCrash`, `parseReportFile`
 - E2E: `.github/workflows/test.yml` (build, version resolution, binary download)
 
 ## Release

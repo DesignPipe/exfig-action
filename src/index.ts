@@ -11,6 +11,7 @@ import type {
   ActionInputs,
   ActionOutputs,
   ExFigCommand,
+  LintSeverity,
   Platform,
   RunnerOS,
   ExFigResult,
@@ -55,6 +56,16 @@ const REPORT_COMMANDS: readonly ExFigCommand[] = [
 // Input Parsing
 // =============================================================================
 
+const VALID_LINT_SEVERITIES: readonly LintSeverity[] = ['error', 'warning', 'info'];
+
+function validateLintSeverity(raw: string): LintSeverity {
+  if (!raw) return 'info';
+  if (VALID_LINT_SEVERITIES.includes(raw as LintSeverity)) return raw as LintSeverity;
+  throw new Error(
+    `Invalid lint_severity '${raw}'. Must be one of: ${VALID_LINT_SEVERITIES.join(', ')}`
+  );
+}
+
 function getInputs(): ActionInputs {
   const command = core.getInput('command', { required: true });
   if (!isValidCommand(command)) {
@@ -81,7 +92,7 @@ function getInputs(): ActionInputs {
     verbose: core.getBooleanInput('verbose'),
     extraArgs: core.getInput('extra_args'),
     lintRules: core.getInput('lint_rules'),
-    lintSeverity: core.getInput('lint_severity') || 'info',
+    lintSeverity: validateLintSeverity(core.getInput('lint_severity')),
     slackWebhook: core.getInput('slack_webhook'),
     slackMention: core.getInput('slack_mention'),
     slackTemplates: core.getInput('slack_templates'),
@@ -489,9 +500,7 @@ export function buildCommand(inputs: ActionInputs): {
     if (inputs.lintRules) {
       args.push('--rules', inputs.lintRules);
     }
-    if (inputs.lintSeverity) {
-      args.push('--severity', inputs.lintSeverity);
-    }
+    args.push('--severity', inputs.lintSeverity);
   }
 
   // Add rate limit and retries
@@ -701,14 +710,23 @@ function parseSingleReport(report: ExportReport): ExFigMetrics {
   };
 }
 
-function parseLintOutput(stdout: string): LintReport | null {
+export function parseLintOutput(stdout: string): LintReport | null {
   try {
     const report = JSON.parse(stdout) as LintReport;
-    if (typeof report.diagnosticsCount === 'number') {
+    if (typeof report.diagnosticsCount === 'number' && Array.isArray(report.diagnostics)) {
       return report;
     }
+    core.warning(
+      `Lint output JSON is missing expected fields. ` +
+        `Raw output (first 200 chars): ${stdout.substring(0, 200)}`
+    );
     return null;
-  } catch {
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    core.warning(
+      `Failed to parse lint JSON output: ${msg}. ` +
+        `Raw output (first 200 chars): ${stdout.substring(0, 200)}`
+    );
     return null;
   }
 }
@@ -945,12 +963,25 @@ async function run(): Promise<void> {
         outputs.lintErrors = lintResult.errorsCount;
         outputs.lintWarnings = lintResult.warningsCount;
         outputs.reportJson = result.stdout;
+      } else {
+        core.warning(
+          'Could not parse lint output as JSON. Lint results will not be available in outputs.'
+        );
       }
     }
 
     // Parse output: prefer structured report when available, fallback to regex
     let metrics: ExFigMetrics;
-    if (REPORT_COMMANDS.includes(inputs.command) && reportPath) {
+    if (inputs.command === 'lint') {
+      metrics = {
+        assetsExported: 0,
+        validatedCount: 0,
+        exportedConfigs: 0,
+        failedCount: 0,
+        errorMessage: '',
+        errorCategory: '',
+      };
+    } else if (REPORT_COMMANDS.includes(inputs.command) && reportPath) {
       const reportMetrics = parseReportFile(reportPath);
       if (reportMetrics) {
         metrics = reportMetrics;
@@ -1100,12 +1131,20 @@ async function handleSlackNotification(
 
   if (outputs.exitCode === 0) {
     if (inputs.command === 'lint') {
-      color = '#36a64f';
-      icon = '\u2705';
-      title = 'Lint passed';
-      subtitle =
-        outputs.lintWarnings > 0 ? `${outputs.lintWarnings} warning(s)` : 'All checks passed';
-      templateName = 'success.json';
+      if (outputs.lintErrors > 0) {
+        color = '#dc3545';
+        icon = '\u274C';
+        title = 'Lint failed';
+        subtitle = `${outputs.lintErrors} error(s), ${outputs.lintWarnings} warning(s)`;
+        templateName = 'failure.json';
+      } else {
+        color = '#36a64f';
+        icon = '\u2705';
+        title = 'Lint passed';
+        subtitle =
+          outputs.lintWarnings > 0 ? `${outputs.lintWarnings} warning(s)` : 'All checks passed';
+        templateName = 'success.json';
+      }
     } else if (outputs.validatedCount > 0 && outputs.assetsExported === 0) {
       color = '#36a64f';
       icon = '\uD83D\uDCA8'; // dash
@@ -1132,9 +1171,13 @@ async function handleSlackNotification(
       } else {
         subtitle = '[CRASH] Process killed by signal - check workflow logs';
       }
-    } else if (inputs.command === 'lint' && outputs.lintErrors > 0) {
+    } else if (inputs.command === 'lint') {
       title = 'Lint failed';
-      subtitle = `${outputs.lintErrors} error(s), ${outputs.lintWarnings} warning(s)`;
+      if (outputs.lintErrors > 0) {
+        subtitle = `${outputs.lintErrors} error(s), ${outputs.lintWarnings} warning(s)`;
+      } else {
+        subtitle = outputs.errorMessage || 'See workflow logs for details';
+      }
     } else if (outputs.failedCount > 0) {
       title = 'Export failed';
       if (outputs.errorMessage) {
