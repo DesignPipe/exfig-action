@@ -645,6 +645,7 @@ describe('buildSlackPayload', () => {
     runUrl: 'https://github.com/owner/repo/actions/runs/123',
     version: 'v1.2.3',
     platform: 'macOS',
+    lintDiagnostics: [],
   };
 
   it('should build inline payload without template', () => {
@@ -693,6 +694,7 @@ describe('buildSlackPayload', () => {
       runUrl: 'https://github.com/test/project/actions/runs/999',
       version: 'v2.0.0',
       platform: 'Linux',
+      lintDiagnostics: [],
     };
 
     const payload = buildSlackPayload(fullVars);
@@ -704,6 +706,58 @@ describe('buildSlackPayload', () => {
     const header = attachments[0].blocks[0] as { text: { text: string } };
     expect(header.text.text).toContain('❌');
     expect(header.text.text).toContain('Export failed');
+  });
+
+  it('should include lint diagnostics block when diagnostics are present', () => {
+    const varsWithDiags = {
+      ...baseVars,
+      lintDiagnostics: [
+        {
+          ruleId: 'path-data-length',
+          ruleName: 'PathData length within Android limits',
+          severity: 'error' as const,
+          message: 'pathData exceeds 32,767 bytes (36925 bytes)',
+          componentName: 'flags / ZM',
+          nodeId: '2241:4458',
+          suggestion: 'Simplify the path in Figma or use raster format',
+        },
+      ],
+    };
+    const payload = buildSlackPayload(varsWithDiags);
+
+    const attachments = payload.attachments as Array<{
+      blocks: Array<{ type: string; text?: { text: string } }>;
+    }>;
+    const sectionBlocks = attachments[0].blocks.filter(
+      b => b.type === 'section' && b.text?.text?.includes('path-data-length')
+    );
+    expect(sectionBlocks).toHaveLength(1);
+    expect(sectionBlocks[0].text!.text).toContain('flags / ZM');
+    expect(sectionBlocks[0].text!.text).toContain('Simplify the path');
+  });
+
+  it('should truncate diagnostics to 10 and show remainder count', () => {
+    const diags = Array.from({ length: 12 }, (_, i) => ({
+      ruleId: `rule-${i}`,
+      ruleName: `Rule ${i}`,
+      severity: 'error' as const,
+      message: `Error ${i}`,
+      componentName: null,
+      nodeId: null,
+      suggestion: null,
+    }));
+    const varsWithMany = { ...baseVars, lintDiagnostics: diags };
+    const payload = buildSlackPayload(varsWithMany);
+
+    const attachments = payload.attachments as Array<{
+      blocks: Array<{ type: string; text?: { text: string } }>;
+    }>;
+    const diagBlock = attachments[0].blocks.find(
+      b => b.type === 'section' && b.text?.text?.includes('rule-0')
+    );
+    expect(diagBlock).toBeDefined();
+    expect(diagBlock!.text!.text).toContain('and 2 more');
+    expect(diagBlock!.text!.text).not.toContain('rule-11');
   });
 });
 

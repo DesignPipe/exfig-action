@@ -194,6 +194,7 @@ export interface SlackTemplateVars {
   runUrl: string;
   version: string;
   platform: string;
+  lintDiagnostics: LintDiagnostic[];
 }
 
 /**

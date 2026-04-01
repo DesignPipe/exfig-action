@@ -87019,6 +87019,24 @@ function buildSlackPayload(vars, templatePath) {
             elements: [{ type: 'mrkdwn', text: vars.subtitle }],
         });
     }
+    if (vars.lintDiagnostics.length > 0) {
+        const MAX_DIAGNOSTICS = 10;
+        const diags = vars.lintDiagnostics.slice(0, MAX_DIAGNOSTICS);
+        const lines = diags.map(d => {
+            const component = d.componentName ? ` in *${d.componentName}*` : '';
+            const suggestion = d.suggestion ? `\n    \u{1F4A1} ${d.suggestion}` : '';
+            return `\u2022 \`${d.ruleId}\`${component} \u2014 ${d.message}${suggestion}`;
+        });
+        if (vars.lintDiagnostics.length > MAX_DIAGNOSTICS) {
+            lines.push(`_\u2026and ${vars.lintDiagnostics.length - MAX_DIAGNOSTICS} more_`);
+        }
+        // Slack section text limit is 3000 chars
+        const text = lines.join('\n').substring(0, 3000);
+        blocks.push({
+            type: 'section',
+            text: { type: 'mrkdwn', text },
+        });
+    }
     blocks.push({
         type: 'actions',
         elements: [
@@ -87444,6 +87462,7 @@ async function run() {
     let context = null;
     let version = 'unknown';
     let platform = 'linux';
+    let lintDiagnostics = [];
     try {
         // Step 1: Parse and validate inputs
         inputs = getInputs();
@@ -87484,6 +87503,7 @@ async function run() {
                 outputs.lintErrors = lintResult.errorsCount;
                 outputs.lintWarnings = lintResult.warningsCount;
                 outputs.reportJson = result.stdout.trim() || JSON.stringify(lintResult);
+                lintDiagnostics = lintResult.diagnostics;
             }
             else {
                 warning('Could not parse lint output as JSON. Lint results will not be available in outputs.');
@@ -87553,7 +87573,7 @@ async function run() {
         await saveAssetCache(inputs, context.runId);
         // Step 9: Send Slack notification if configured
         if (inputs.slackWebhook) {
-            await handleSlackNotification(inputs, outputs, context, version, platform);
+            await handleSlackNotification(inputs, outputs, context, version, platform, lintDiagnostics);
         }
         // Fail if ExFig failed or crashed
         if (isCrash) {
@@ -87577,7 +87597,7 @@ async function run() {
             await saveAssetCache(inputs, context.runId);
             // Send Slack notification on failure
             if (inputs.slackWebhook) {
-                await handleSlackNotification(inputs, outputs, context, version, platform);
+                await handleSlackNotification(inputs, outputs, context, version, platform, lintDiagnostics);
             }
         }
         setFailed(message);
@@ -87599,7 +87619,7 @@ function setOutputs(outputs) {
     setOutput('lint_errors', outputs.lintErrors ?? 0);
     setOutput('lint_warnings', outputs.lintWarnings ?? 0);
 }
-async function handleSlackNotification(inputs, outputs, context, version, platform) {
+async function handleSlackNotification(inputs, outputs, context, version, platform, lintDiagnostics = []) {
     const runUrl = `${context.serverUrl}/${context.repository}/actions/runs/${context.runId}`;
     const mention = formatSlackMention(inputs.slackMention);
     // Build assets display
@@ -87733,6 +87753,7 @@ async function handleSlackNotification(inputs, outputs, context, version, platfo
         runUrl,
         version,
         platform: platform === 'darwin' ? 'macOS' : 'Linux',
+        lintDiagnostics,
     }, templatePath);
     await sendSlackNotification(inputs.slackWebhook, payload);
 }
