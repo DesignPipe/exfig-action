@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.2] - 2026-04-01
+
+### Bug Fixes
+
+- **lint**: Handle empty stdout when ExFig finds no issues by @alexey1312
+
+
 ## [3.1.1] - 2026-03-31
 
 ### Bug Fixes
