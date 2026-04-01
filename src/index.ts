@@ -711,6 +711,10 @@ function parseSingleReport(report: ExportReport): ExFigMetrics {
 }
 
 export function parseLintOutput(stdout: string): LintReport | null {
+  if (!stdout.trim()) {
+    core.info('Lint produced no output — treating as clean (0 errors, 0 warnings).');
+    return { diagnosticsCount: 0, errorsCount: 0, warningsCount: 0, diagnostics: [] };
+  }
   try {
     const report = JSON.parse(stdout) as LintReport;
     if (typeof report.diagnosticsCount === 'number' && Array.isArray(report.diagnostics)) {
@@ -962,7 +966,7 @@ async function run(): Promise<void> {
       if (lintResult) {
         outputs.lintErrors = lintResult.errorsCount;
         outputs.lintWarnings = lintResult.warningsCount;
-        outputs.reportJson = result.stdout;
+        outputs.reportJson = result.stdout.trim() || JSON.stringify(lintResult);
       } else {
         core.warning(
           'Could not parse lint output as JSON. Lint results will not be available in outputs.'

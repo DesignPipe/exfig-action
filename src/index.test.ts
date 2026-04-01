@@ -166,8 +166,20 @@ describe('parseLintOutput', () => {
     expect(parseLintOutput('not json at all')).toBeNull();
   });
 
-  it('should return null for empty string', () => {
-    expect(parseLintOutput('')).toBeNull();
+  it('should return clean report for empty string', () => {
+    const result = parseLintOutput('');
+    expect(result).not.toBeNull();
+    expect(result!.diagnosticsCount).toBe(0);
+    expect(result!.errorsCount).toBe(0);
+    expect(result!.warningsCount).toBe(0);
+    expect(result!.diagnostics).toHaveLength(0);
+  });
+
+  it('should return clean report for whitespace-only string', () => {
+    const result = parseLintOutput('  \n  ');
+    expect(result).not.toBeNull();
+    expect(result!.diagnosticsCount).toBe(0);
+    expect(result!.errorsCount).toBe(0);
   });
 });
 

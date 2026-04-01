@@ -49,7 +49,7 @@ ExFig Action is a TypeScript-based GitHub Action that exports Figma assets using
 
 Git hooks auto-configure via `hooks.enter` in mise.toml.
 
-**Note:** Run `npm ci` first if `node_modules/` is missing. `npx jest` works when `./bin/mise run test` fails to find jest.
+**Note:** Run `npm ci` first if `node_modules/` is missing. `npx jest` works when `./bin/mise run test` fails to find jest. Do NOT use `--testPathPattern` (removed); use `--testPathPatterns` or no flag.
 
 ## Code Style
 
@@ -70,6 +70,8 @@ Single Node.js process executes: validate inputs → resolve version → cache/d
 **Cache gotcha:** `saveCache([installDir])` captures entire directory. New binaries must be installed _before_ `saveCache()` call in `run()` — not inside `downloadBinary()`.
 
 **Slack notification:** Uses raw `https.request` (no libraries). All errors are non-fatal (`resolve()`, never `reject()`). Always `res.resume()` response body to avoid holding the socket open.
+
+**ExFig lint empty output:** ExFig CLI returns empty stdout when no issues found at the requested severity level. `parseLintOutput` handles this by returning a zero-count LintReport.
 
 **New command checklist:** When adding a new ExFig command: (1) add to `ExFigCommand` type + `VALID_COMMANDS`, (2) add command-specific parsing in `run()`, (3) skip `parseExFigOutput` regex if output format differs, (4) add both success AND failure paths in `handleSlackNotification`, (5) export parser function and add tests.
 

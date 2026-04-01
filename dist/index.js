@@ -87264,6 +87264,10 @@ function parseSingleReport(report) {
     };
 }
 function parseLintOutput(stdout) {
+    if (!stdout.trim()) {
+        info('Lint produced no output — treating as clean (0 errors, 0 warnings).');
+        return { diagnosticsCount: 0, errorsCount: 0, warningsCount: 0, diagnostics: [] };
+    }
     try {
         const report = JSON.parse(stdout);
         if (typeof report.diagnosticsCount === 'number' && Array.isArray(report.diagnostics)) {
@@ -87479,7 +87483,7 @@ async function run() {
             if (lintResult) {
                 outputs.lintErrors = lintResult.errorsCount;
                 outputs.lintWarnings = lintResult.warningsCount;
-                outputs.reportJson = result.stdout;
+                outputs.reportJson = result.stdout.trim() || JSON.stringify(lintResult);
             }
             else {
                 warning('Could not parse lint output as JSON. Lint results will not be available in outputs.');
